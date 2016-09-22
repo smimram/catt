@@ -45,8 +45,20 @@ let rec free_vars = function
 
 (** Generate a fresh variable name. *)
 let fresh_var =
-  let n = ref 0 in
-  (fun () -> incr n; Printf.sprintf "#x%d" !n)
+  let count = ref [] in
+  (fun x ->
+    let n =
+      try
+        let n = List.assoc x !count in
+        count := List.remove_assoc x !count;
+        count := (x,n+1) :: !count;
+        n
+      with
+      | Not_found ->
+         count := (x,1) :: !count;
+         0
+    in
+    Printf.sprintf "%s.%d" x n)
 
 (** Apply a substitution. *)
 let rec subst s = function
@@ -67,13 +79,13 @@ let rec subst s = function
   | App (f,x) -> App (subst s f, subst s x)
   | Abs (x,t,e) ->
      let t = subst s t in
-     let x' = fresh_var () in
+     let x' = fresh_var x in
      let s = (x,Var x')::s in
      let e = subst s e in
      Abs (x,t,e)
   | Pi (x,t,u) ->
      let t = subst s t in
-     let x' = fresh_var () in
+     let x' = fresh_var x in
      let s = (x,Var x')::s in
      let u = subst s u in
      Pi (x',t,u)
@@ -370,7 +382,7 @@ let exec_cmd env = function
   | Decl (x,e) ->
      let t = infer_type env e in
      info "%s = %s\n    : %s" x (to_string e) (to_string t);
-     let x' = fresh_var () in
+     let x' = fresh_var x in
      let env = Env.add env x' ~value:e t in
      let env = Env.add env x ~value:(Var x') t in
      env
