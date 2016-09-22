@@ -1,0 +1,74 @@
+let comp = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (z : *) (g : y -> z)
+    =>
+    (x -> z)
+
+let assoc = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (z : *) (g : y -> z)
+    (w : *) (h : z -> w)
+    =>
+    comp x z (comp x y f z g) w h -> comp x y f w (comp y z g w h)
+
+let assoc' = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (z : *) (g : y -> z)
+    (w : *) (h : z -> w)
+    =>
+    comp x y f w (comp y z g w h) -> comp x z (comp x y f z g) w h
+
+let id = coh (x : *) => (x -> x)
+
+let unitl = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    =>
+    comp x x (id x) y f -> f
+
+let unitr = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    =>
+    comp x y f y (id y) -> f
+
+let id1 = id
+let comp1 = comp
+
+let id2 = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    =>
+    (f -> f)
+
+let vcomp = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (h : x -> y) (b : g -> h)
+    =>
+    f -> h
+
+let hcomp = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : *) (g : y -> z)
+    (g' : y -> z) (b : g -> g')
+    =>
+    comp x y f z g -> comp x y f' z g'
+
+# let assoc-invl = coh
+    # (x : *)
+    # (y : *) (f : x -> y)
+    # (z : *) (g : y -> z)
+    # (w : *) (h : z -> w)
+    # =>
+    # comp x w (assoc' x y f z g w h)
+
+set groupoid = true
+
+let inv = coh (x : *) (y : *) (f : x -> y) => y -> x
