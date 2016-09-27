@@ -25,14 +25,17 @@ prog:
     | EOF { [] }
 
 cmd:
-    | LET IDENT args EQ expr { Decl ($2,abs $3 $5) }
-    | HYP IDENT COL expr { Axiom ($2,$4) }
+    | LET var args EQ expr { Decl ($2,abs $3 $5) }
+    | HYP var COL expr { Axiom ($2,$4) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
 
+var:
+    | IDENT { VIdent $1 }
+
 args:
-    | LPAR IDENT COL expr RPAR args { ($2,$4)::$6 }
+    | LPAR var COL expr RPAR args { ($2,$4)::$6 }
     | { [] }
 
 ps:
@@ -40,7 +43,7 @@ ps:
 
 simple_expr:
     | LPAR expr RPAR { $2 }
-    | IDENT { Var $1 }
+    | var { Var $1 }
     | OBJ { Obj }
     | US { fresh_evar () }
 

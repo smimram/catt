@@ -9,39 +9,48 @@ open Common
 (** Do we want the theory of groupoids? *)
 let groupoid = ref false
 
+(** A variable. *)
+type var =
+  | VIdent of string
+  | VFresh of string * int
+
 (** An expression. *)
 type expr =
-  | Var of string
+  | Var of var
   | EVar of (evar ref * subst) (* expression, substition, type *)
   | Coh of ps * expr (* the list is reversed *)
   | Type
   | Obj
   | Arr of expr * expr
-  | Pi of string * expr * expr
-  | Abs of string * expr * expr
+  | Pi of var * expr * expr
+  | Abs of var * expr * expr
   | App of expr * expr
  (** A pasting scheme. *)
  and ps =
-   (string * expr) list
+   (var * expr) list
  (** A substitution. *)
- and subst = (string * expr) list
+ and subst = (var * expr) list
  and evar =
    | ENone of int * expr (* unknown variable with given number and type *)
    | ESome of expr
 
+let string_of_var = function
+  | VIdent x -> x
+  | VFresh (x,n) -> x ^ "." ^ string_of_int n
+
 (** String representation. *)
 let rec to_string = function
-  | Var x -> x
+  | Var x -> string_of_var x
   | EVar (x,_) -> (match !x with ENone(n,t) -> "?"^string_of_int n | ESome x -> to_string x (* "[" ^ to_string x ^ "]" *))
   | Coh (p,t) ->
-     let p = String.concat " " (List.map (fun (x,t) -> "(" ^ x ^ " : " ^ to_string t ^ ")") p) in
+     let p = String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") p) in
      let t = to_string t in
      Printf.sprintf "(coh %s => %s)" p t
   | Type -> "Type"
   | Obj -> "*"
   | Arr (x,y) -> to_string x ^ " -> " ^ to_string y
-  | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" x (to_string t) (to_string u)
-  | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" x (to_string t) (to_string e)
+  | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string t) (to_string u)
+  | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string t) (to_string e)
   | App (f,e) -> to_string f ^ " " ^ to_string e
 
 (** Free variables. *)
@@ -58,6 +67,11 @@ let rec free_vars = function
 let fresh_var =
   let count = ref [] in
   (fun x ->
+    let x =
+      match x with
+      | VIdent x -> x
+      | VFresh (x,_) -> x
+    in
     let n =
       try
         let n = List.assoc x !count in
@@ -69,7 +83,7 @@ let fresh_var =
          count := (x,1) :: !count;
          0
     in
-    Printf.sprintf "%s.%d" x n)
+    VFresh (x,n))
 
 let fresh_inevar =
   let n = ref (-1) in
@@ -178,10 +192,11 @@ let generalize_evar e =
 module Env = struct
   (** A typing environment assign to each variable, its value (when known, which
   should be in normal form) and its type. *)
-  type t = (string * (expr option * expr)) list
+  type t = (var * (expr option * expr)) list
 
   let to_string (env:t) =
     let f (x, (e, t)) =
+      let x = string_of_var x in
       match e with
       | Some e ->
          let pad = String.make (String.length x) ' ' in
@@ -213,7 +228,7 @@ let rec normalize env e =
          | Some e -> normalize env (generalize_evar e)
          | None -> Var x
        with
-       | Not_found -> error "unknown identifier %s" x
+       | Not_found -> error "unknown identifier %s" (string_of_var x)
      end
   | EVar (x,s) as e -> (match !x with ENone _ -> e | ESome e -> normalize env (subst s e))
   | App (f, e) ->
@@ -256,8 +271,8 @@ let rec normalize env e =
 module PS = struct
   type t = ps
 
-  let to_string ps =
-    String.concat " " (List.map (fun (x,t) -> "(" ^ x ^ " : " ^ to_string t ^ ")") ps)
+  let to_string (ps:t) =
+    String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") ps)
 
   (** Sort a list according to dependency order. *)
   let sort l =
@@ -368,7 +383,7 @@ let rec infer_type env e =
          let t = Env.typ env x in
          if Env.value env x <> None then generalize_evar t else t
        with
-       | Not_found -> error "unknown identifier %s" x
+       | Not_found -> error "unknown identifier %s" (string_of_var x)
      end
   | EVar (x,s) -> (match !x with ENone (n,t) -> t | ESome e -> infer_type env (subst s e))
   | Type -> Type
@@ -448,7 +463,7 @@ let rec infer_type env e =
                Printf.printf "source (ps): %s\n%!" (PS.to_string (PS.source (i-1) ps));
                Printf.printf "source     : %s\n%!" (to_string f);
                Printf.printf "source     : %s\n%!" (to_string (normalize env f));
-               let bad = String.concat ", " bad in
+               let bad = String.concat ", " (List.map string_of_var bad) in
                error "not algebraic: %s" bad;
            end;
        end;
@@ -487,8 +502,8 @@ and eq env t1 t2 =
 
 (** A command. *)
 type cmd =
-  | Decl of string * expr
-  | Axiom of string * expr
+  | Decl of var * expr
+  | Axiom of var * expr
   | Check of expr
   | Eval of expr
   | Set of string * string
@@ -504,7 +519,7 @@ let exec_cmd (env,s) = function
      (* let e = normalize env e in *)
      (* let t = infer_type env e in *)
      let x' = fresh_var x in
-     info "%s = %s\n    : %s" x' (to_string e) (to_string t);
+     info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
      let env = Env.add env x' ~value:e t in
      let s = (x,Var x')::s in
      env,s

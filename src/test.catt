@@ -21,7 +21,7 @@ let assoc = coh
     (w : *) (h : z -> w)
     =>
     comp (comp f g) h -> comp f (comp g h)
-let assoc (f : _ -> _) (g :  _-> _) (h : _ -> _) = assoc _ _ f _ g _ h
+let assoc (f : _ -> _) (g : _-> _) (h : _ -> _) = assoc _ _ f _ g _ h
 
 let id = coh (x : *) => (x -> x)
 let id = id _
@@ -59,13 +59,6 @@ let vcomp = coh
     f -> h
 let vcomp (a : _ -> _) (b : _ -> _) = vcomp _ _ _ _ a _ b
 
-hyp x : *
-hyp y : *
-hyp z : *
-hyp f : x -> y
-hyp g : y -> z
-eval (comp f g)
-
 let hcomp = coh
     (x : *)
     (y : *) (f : x -> y)
@@ -75,6 +68,25 @@ let hcomp = coh
     =>
     comp f g -> comp f' g'
 let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
+
+# let ichg = coh
+    # (x : *)
+    # (y : *) (f : x -> y)
+    # (g : x -> y) (a : f -> g)
+    # (h : x -> y) (b : g -> h)
+    # (z : *) (l : y -> z)
+    # (m : y -> z) (c : l -> m)
+    # (n : y -> z) (d : m -> n)
+    # =>
+    # hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
+
+hyp x : *
+hyp y : *
+hyp z : *
+hyp f : x -> y
+hyp g : y -> z
+eval (comp f g)
+
 
 set groupoid = true
 

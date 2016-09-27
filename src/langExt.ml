@@ -12,7 +12,7 @@ module Subst = struct
   let of_ps (ps:PS.t) : t =
     List.map (fun (x,t) -> Var x, t) ps
 
-  let dummy = Var "?"
+  let dummy = Var (VIdent "?")
 
   (** Compute all the possible applications of a function to a substitution. *)
   let match_app env ps f =
