@@ -438,7 +438,7 @@ type prog = cmd list
 
 (** Execute a command. *)
 let exec_cmd (env,s) cmd =
-  Printf.printf "=^.^= %s\n\n%!" (string_of_cmd cmd);
+  command "%s" (string_of_cmd cmd);
   match cmd with
   | Decl (x,e) ->
      let e = subst s e in
