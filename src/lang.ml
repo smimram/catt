@@ -270,20 +270,6 @@ module PS = struct
   let to_string (ps:t) =
     String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") ps)
 
-  (*
-  (** Sort a list according to dependency order. *)
-  let sort l =
-    let lt (x,tx) (y,ty) =
-      match ty with
-      | Arr (x', _) when x = x' -> true
-      | _ ->
-         match tx with
-         | Arr (_, y') when y' = y -> true
-         | _ -> false
-    in
-    (* TODO *)let _ = lt in ()
-   *)
-
   (** Check that a pasting scheme is well-formed. *)
   let check l =
     let x0,l =
@@ -458,7 +444,7 @@ type cmd =
   | Set of string * string
 
 let string_of_cmd = function
-  | Decl (mv,x,e) -> Printf.sprintf "%s %s = %s" (if mv then "let" else "def") (string_of_var x) (to_string e)
+  | Decl (mv,x,e) -> Printf.sprintf "%s %s = %s" (if mv then "letm" else "let") (string_of_var x) (to_string e)
   | Coh (x,ps,e) -> Printf.sprintf "coh %s %s : %s" (string_of_var x) (PS.to_string ps) (to_string e)
   | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
   | Check e -> Printf.sprintf "check %s" (to_string e)
