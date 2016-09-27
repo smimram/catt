@@ -48,18 +48,6 @@ let rec to_string = function
   | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string t) (to_string e)
   | App (f,e) -> to_string f ^ " " ^ to_string e
 
-(** Free variables. *)
-let rec free_vars = function
-  | Var x -> [x]
-  | EVar (x,s) ->
-     (* assert false; *)
-     (match !x with ENone _ -> [] | ESome x -> free_vars x) (* TODO: take substitution in account... *)
-  | Obj | Type -> []
-  | Arr (s,t) -> (free_vars s)@(free_vars t)
-  | App (f,x) -> (free_vars f)@(free_vars x)
-  | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
-  | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
-
 (** Generate a fresh variable name. *)
 let fresh_var =
   let count = ref [] in
@@ -142,6 +130,19 @@ let rec subst (s:subst) e =
 let rec unevar = function
   | EVar ({contents = ESome e}, s) -> unevar (subst s e)
   | e -> e
+
+(** Free variables. *)
+let rec free_vars e =
+  (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
+  match unevar e with
+  | Var x -> [x]
+  | EVar (x,s) -> assert false
+  | Obj | Type -> []
+  | Arr (s,t) -> (free_vars s)@(free_vars t)
+  | App (f,x) -> (free_vars f)@(free_vars x)
+  | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
+  | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
+
 
 (** Replace EVars by fresh ones. *)
 (* TODO: use levels? *)
