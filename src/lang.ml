@@ -38,15 +38,19 @@ let string_of_var = function
   | VFresh (x,n) -> x ^ "." ^ string_of_int n
 
 (** String representation. *)
-let rec to_string = function
+let rec to_string ?(pa=false) e =
+  let pab = pa in
+  let to_string pa e = to_string ~pa e in
+  let pa s = if pa then "("^s^")" else s in
+  match e with
   | Var x -> string_of_var x
-  | EVar (x,_) -> (match !x with ENone(n,t) -> "?"^string_of_int n | ESome x -> to_string x (* "[" ^ to_string x ^ "]" *))
+  | EVar (x,_) -> (match !x with ENone(n,t) -> "?"^string_of_int n | ESome x -> to_string pab x (* "[" ^ to_string x ^ "]" *))
   | Type -> "Type"
   | Obj -> "*"
-  | Arr (x,y) -> to_string x ^ " -> " ^ to_string y
-  | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string t) (to_string u)
-  | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string t) (to_string e)
-  | App (f,e) -> to_string f ^ " " ^ to_string e
+  | Arr (x,y) -> pa (to_string false x ^ " -> " ^ to_string false y)
+  | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u)
+  | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e)
+  | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
 
 (** Generate a fresh variable name. *)
 let fresh_var =
@@ -381,7 +385,8 @@ let rec infer_type env e =
      begin
        match t, u with
        | Arr (x,y), Arr (x',y') ->
-          if not (eq env x x' && eq env y y') then error "non parallel arrows"
+          if not (eq env x x' && eq env y y') then
+            error "non parallel arrows: %s vs %s" (to_string t) (to_string u)
        | Obj, Obj -> ()
        | (Arr _  | Obj ), (Arr _ | Obj) -> error "arrows of different dimension"
        | _ -> error "unexpected type %s or %s for arrows" (to_string t) (to_string u)

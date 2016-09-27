@@ -21,7 +21,7 @@ coh assoc
     (w : *) (h : z -> w)
     :
     comp (comp f g) h -> comp f (comp g h)
-let assoc (f : _ -> _) (g : _-> _) (h : _ -> _) = assoc _ _ f _ g _ h
+let assoc (f : _ -> _) (g : _ -> _) (h : _ -> _) = assoc _ _ f _ g _ h
 
 coh id (x : *) : (x -> x)
 let id = id _
@@ -69,6 +69,13 @@ coh hcomp
     comp f g -> comp f' g'
 let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
 
+coh unitl2-inv
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    a -> hcomp (id2 id) a
+
 coh ichg
     (x : *)
     (y : *) (f : x -> y)
@@ -79,6 +86,9 @@ coh ichg
     (n : y -> z) (d : m -> n)
     :
     hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
+let ichg (a : _ -> _) (b : _ -> _) (c : _ -> _) (d : _ -> _) = ichg _ _ _ _ a _ b _ _ _ c _ d
+
+# let eckmann-hilton (x : *) (a : id -> id) (b : id -> id) =
 
 hyp x : *
 hyp y : *
