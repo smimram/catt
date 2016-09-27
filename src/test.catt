@@ -57,14 +57,14 @@ coh vcomp
     (h : x -> y) (b : g -> h)
     :
     f -> h
-letm vcomp a b = vcomp _ _ _ _ a _ b
+let vcomp a b = vcomp _ _ _ _ a _ b
 let comp2 = vcomp
 
 coh comp12 (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) (g' : y -> z) (a : g -> g') : comp f g -> comp f g'
-letm comp12 f a = comp12 _ _ f _ _ _ a
+let comp12 f a = comp12 _ _ f _ _ _ a
 
 coh comp21 (x : *) (y : *) (f : x -> y) (f' : x -> y) (a : f -> f') (z : *) (g : y -> z) : comp f g -> comp f' g
-letm comp21 a g = comp21 _ _ _ _ a _ g
+let comp21 a g = comp21 _ _ _ _ a _ g
 
 # coh hcomp
     # (x : *)

@@ -57,4 +57,4 @@ app_expr:
 
 expr:
     | app_expr { $1 }
-    | expr ARR expr { Arr ($1,$3) }
+    | expr ARR expr { Arr (fresh_evar (),$1,$3) }

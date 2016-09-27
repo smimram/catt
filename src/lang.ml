@@ -20,7 +20,7 @@ type expr =
   | EVar of (evar ref * subst) (* expression, substition, type *)
   | Type
   | Obj
-  | Arr of expr * expr
+  | Arr of expr * expr * expr
   | Pi of var * expr * expr
   | Abs of var * expr * expr
   | App of expr * expr
@@ -46,7 +46,7 @@ let rec to_string ?(pa=false) e =
   | EVar (x,_) -> string_of_evar !x
   | Type -> "Type"
   | Obj -> "*"
-  | Arr (x,y) -> pa (to_string false x ^ " -> " ^ to_string false y)
+  | Arr (t,f,g) -> pa (Printf.sprintf "%s -%s-> %s" (to_string false f) (to_string true t) (to_string false g))
   | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u)
   | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e)
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
@@ -107,7 +107,7 @@ let occurs_evar v e =
     | App (f,e) -> aux f || aux e
     | Pi (x,t,u) -> aux t || aux u
     | Obj -> false
-    | Arr (f,g) -> aux f || aux g
+    | Arr (t,f,g) -> aux t || aux f || aux g
   in
   aux e
 
@@ -125,7 +125,7 @@ let rec subst (s:subst) e =
   | EVar (x,s') -> (match !x with ENone _ -> EVar (x,s'@s) | ESome e -> subst (s'@s) e)
   | Type -> Type
   | Obj -> Obj
-  | Arr (x,y) -> Arr (subst s x, subst s y)
+  | Arr (t,x,y) -> Arr (subst s t, subst s x, subst s y)
   | App (f,x) -> App (subst s f, subst s x)
   | Abs (x,t,e) ->
      let t = subst s t in
@@ -154,7 +154,7 @@ let rec free_evar e =
   | Var _ | Type | Obj -> []
   | Abs (_,t,e) -> List.diffq (free_evar e) (free_evar t)
   | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
-  | Arr (f, g) -> List.unionq (free_evar f) (free_evar g)
+  | Arr (t, f, g) -> List.unionq (free_evar t) (List.unionq (free_evar f) (free_evar g))
   | Pi (_,t,u) -> List.unionq (free_evar t) (free_evar u)
 
 (** Replace EVars by fresh ones. *)
@@ -180,7 +180,7 @@ let generalize_evar e =
     | App (f,e) -> App (aux f, aux e)
     | Pi (x,t,u) -> Pi (x, aux t, aux u)
     | Obj -> e
-    | Arr (f,g) -> Arr (aux f, aux g)
+    | Arr (t,f,g) -> Arr (aux t, aux f, aux g)
   in
   aux e
 
@@ -191,7 +191,7 @@ let rec free_vars e =
   | Var x -> [x]
   | EVar (x,s) -> assert false
   | Obj | Type -> []
-  | Arr (s,t) -> (free_vars s)@(free_vars t)
+  | Arr (t,f,g) -> (free_vars t)@(free_vars f)@(free_vars g)
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
   | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
@@ -257,10 +257,11 @@ let rec normalize env e =
      let e = normalize (Env.add env x t) e in
      Abs (x,t,e)
   | Obj -> Obj
-  | Arr (f,g) ->
+  | Arr (t,f,g) ->
+     let t = normalize env t in
      let f = normalize env f in
      let g = normalize env g in
-     Arr (f,g)
+     Arr (t,f,g)
 
 (** Pasting schemes. *)
 module PS = struct
@@ -269,6 +270,7 @@ module PS = struct
   let to_string (ps:t) =
     String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") ps)
 
+  (*
   (** Sort a list according to dependency order. *)
   let sort l =
     let lt (x,tx) (y,ty) =
@@ -280,6 +282,7 @@ module PS = struct
          | _ -> false
     in
     (* TODO *)let _ = lt in ()
+   *)
 
   (** Check that a pasting scheme is well-formed. *)
   let check l =
@@ -296,7 +299,7 @@ module PS = struct
     in
     let drop ps =
       match ps with
-      | (f, Arr(Var x, Var y))::_ -> (y, List.assoc x ps)::ps
+      | (f, Arr(_, Var x, Var y))::_ -> (y, List.assoc x ps)::ps
       | _::_ -> assert false
       | [] -> assert false
     in
@@ -304,7 +307,7 @@ module PS = struct
       | (y,ty)::(f,tf)::l ->
          begin
            match tf with
-           | Arr (Var fx, Var fy) ->
+           | Arr (_, Var fx, Var fy) ->
               if (y <> fy) then error "not a pasting scheme (following types do not match)";
               if fx = marker ps then
                 let ps_fv = List.map fst ps in
@@ -330,7 +333,7 @@ module PS = struct
       | (x,Obj)::ps ->
          let env = (x,0)::env in
          aux env ps
-      | (x,Arr (Var f, Var g))::ps ->
+      | (x,Arr (_, Var f, Var g))::ps ->
          let d = List.assoc f env in
          let env = (x,d+1)::env in
          aux env ps
@@ -349,7 +352,7 @@ module PS = struct
     let dims = dims ps in
     let dim x = List.assoc x dims in
     let targets = List.filter (fun (x,t) -> dim x = i+1) ps in
-    let targets = List.map (fun (x,t) -> match t with Arr (Var f, Var g) -> g | _ -> assert false) targets in
+    let targets = List.map (fun (x,t) -> match t with Arr (_, Var f, Var g) -> g | _ -> assert false) targets in
     List.filter (fun (x,t) -> dim x < i || (dim x = i && not (List.mem x targets))) ps
 
   (** Target of a pasting scheme. *)
@@ -358,7 +361,7 @@ module PS = struct
     let dims = dims ps in
     let dim x = List.assoc x dims in
     let sources = List.filter (fun (x,t) -> dim x = i+1) ps in
-    let sources = List.map (fun (x,t) -> match t with Arr (Var f, Var g) -> f | _ -> assert false) sources in
+    let sources = List.map (fun (x,t) -> match t with Arr (_, Var f, Var g) -> f | _ -> assert false) sources in
     List.filter (fun (x,t) -> dim x < i || (dim x = i && not (List.mem x sources))) ps
 end
 
@@ -400,18 +403,18 @@ let rec infer_type env e =
      if not (eq env t t') then error "got %s, but %s is expected" (to_string t') (to_string t);
      subst [x,e] u
   | Obj -> Type
-  | Arr (f, g) ->
-     let t = infer_type env f in
-     let u = infer_type env g in
-     begin
-       match t, u with
-       | Arr (x,y), Arr (x',y') ->
-          if not (eq env x x' && eq env y y') then
-            error "non parallel arrows: %s vs %s" (to_string t) (to_string u)
-       | Obj, Obj -> ()
-       | (Arr _  | Obj ), (Arr _ | Obj) -> error "arrows of different dimension"
-       | _ -> error "unexpected type %s or %s for arrows" (to_string t) (to_string u)
-     end;
+  | Arr (t, f, g) ->
+     infer_univ env t;
+     let tf = infer_type env f in
+     let tg = infer_type env g in
+     let is_arr = function
+       | Arr _ | Obj -> true
+       | _ -> false
+     in
+     if not (is_arr tf) then error "got %s, but arrow type is expected" (to_string tf);
+     if not (is_arr tg) then error "got %s, but arrow type is expected" (to_string tg);
+     if not (eq env tf t) then error "got %s, but %s is expected" (to_string tf) (to_string t);
+     if not (eq env tg t) then error "got %s, but %s is expected" (to_string tg) (to_string t);
      Type
 
 (** Type inference where a Type is expected. *)
@@ -419,6 +422,8 @@ and infer_univ env t =
   let u = infer_type env t in
   match normalize env u with
   | Type -> ()
+  | EVar ({contents = ESome t}, s) -> infer_univ env (subst s t)
+  | EVar (x, _) -> x := ESome Type
   | u -> error "got %s, but type is expected" (to_string u)
 
 (** Equality between expressions. *)
@@ -432,7 +437,7 @@ and eq env t1 t2 =
     | App (f1,e1), App (f2,e2) -> eq f1 f2 && eq e1 e2
     | Type, Type -> true
     | Obj, Obj -> true
-    | Arr (f1,g1), Arr (f2,g2) -> eq f1 f2 && eq g1 g2
+    | Arr (t1,f1,g1), Arr (t2,f2,g2) -> eq t1 t2 && eq f1 f2 && eq g1 g2
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
     | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
     | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
@@ -521,13 +526,13 @@ let exec_cmd (env,s) cmd =
        begin
          let f,g =
            match t with
-           | Arr (f,g) -> f,g
+           | Arr (_,f,g) -> f,g
            | _ -> assert false
          in
          let fv = PS.free_vars ps in
          let rec close_vars f =
            match infer_type env f with
-           | Arr (x,y) -> List.union (close_vars x) (List.union (close_vars y) (free_vars f))
+           | Arr (_,x,y) -> List.union (close_vars x) (List.union (close_vars y) (free_vars f))
            | Obj -> free_vars f
            | _ -> assert false
          in
