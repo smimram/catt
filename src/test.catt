@@ -69,16 +69,16 @@ let hcomp = coh
     comp f g -> comp f' g'
 let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
 
-# let ichg = coh
-    # (x : *)
-    # (y : *) (f : x -> y)
-    # (g : x -> y) (a : f -> g)
-    # (h : x -> y) (b : g -> h)
-    # (z : *) (l : y -> z)
-    # (m : y -> z) (c : l -> m)
-    # (n : y -> z) (d : m -> n)
-    # =>
-    # hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
+let ichg = coh
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (h : x -> y) (b : g -> h)
+    (z : *) (l : y -> z)
+    (m : y -> z) (c : l -> m)
+    (n : y -> z) (d : m -> n)
+    =>
+    hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
 
 hyp x : *
 hyp y : *

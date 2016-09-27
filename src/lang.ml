@@ -479,6 +479,7 @@ and infer_univ env t =
 (** Equality between expressions. *)
 and eq env t1 t2 =
   let rec eq t1 t2 =
+    (* Printf.printf "eq\n%s\n%s\n\n" (to_string t1) (to_string t2); *)
     match t1, t2 with
     | Var x1, Var x2 -> x1 = x2
     | Pi (x1,t1,u1), Pi (x2,t2,u2) -> eq t1 t2 && eq u1 (subst [x2,Var x1] u2)
@@ -488,9 +489,15 @@ and eq env t1 t2 =
     | Obj, Obj -> true
     | Arr (f1,g1), Arr (f2,g2) -> eq f1 f2 && eq g1 g2
     | Coh (ps1,t1), Coh (ps2,t2) ->
+       let s = ref [] in
        List.length ps1 = List.length ps2
-       && List.for_all2 (fun (x1,t1) (x2,t2) -> x1 = x2 && eq t1 t2) ps1 ps2
-       && eq t1 t2
+       && List.for_all2
+            (fun (x1,t1) (x2,t2) ->
+              let ans = eq t1 (subst !s t2) in
+              s := (x2,Var x1) :: !s;
+              ans
+            ) ps1 ps2
+       && eq t1 (subst !s t2)
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
     | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
     | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
