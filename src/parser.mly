@@ -8,32 +8,41 @@
 %}
 
 %token COH LET SET ARR ARROW OBJ
-%token LPAR RPAR COL EQ
+%token LPAR RPAR COL EQ US
 %token <string> IDENT
+%token CHECK EVAL HYP
 %token EOF
 
 %right ARR ARROW
 
-%start decls
-%type <Lang.prog> decls
+%start prog ps
+%type <Lang.prog> prog
+%type <Lang.PS.t> ps
 %%
 
-decls:
-    | decl decls { $1::$2 }
+prog:
+    | cmd prog { $1::$2 }
     | EOF { [] }
 
-decl:
+cmd:
     | LET IDENT args EQ expr { Decl ($2,abs $3 $5) }
+    | HYP IDENT COL expr { Axiom ($2,$4) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
+    | CHECK expr { Check $2 }
+    | EVAL expr { Eval $2 }
 
 args:
     | LPAR IDENT COL expr RPAR args { ($2,$4)::$6 }
     | { [] }
 
+ps:
+    | args { $1 }
+
 simple_expr:
     | LPAR expr RPAR { $2 }
     | IDENT { Var $1 }
     | OBJ { Obj }
+    | US { fresh_evar () }
 
 app_expr:
     | app_expr simple_expr { App ($1,$2) }

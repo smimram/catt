@@ -8,6 +8,9 @@ rule token = parse
   | "coh" { COH }
   | "let" { LET }
   | "set" { SET }
+  | "hyp" { HYP }
+  | "check" { CHECK }
+  | "eval" { EVAL }
   | "(" { LPAR }
   | ")" { RPAR }
   | ":" { COL }
@@ -15,6 +18,7 @@ rule token = parse
   | "=>" { ARROW }
   | "*" { OBJ }
   | "=" { EQ }
+  | "_" { US }
   | (['_''a'-'z''A'-'Z']['a'-'z''A'-'Z''0'-'9''_']*['\'']* as str) { IDENT str }
   | space+ { token lexbuf }
   | "#"[^'\n']* { token lexbuf }

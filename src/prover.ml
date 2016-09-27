@@ -1,8 +1,13 @@
+(** Interaction with user. *)
+
+open Lang
+open LangExt
+
 (** Parse a string. *)
 let parse s =
   let lexbuf = Lexing.from_string s in
   try
-    Parser.decls Lexer.token lexbuf
+    Parser.prog Lexer.token lexbuf
   with
   | Failure s when s = "lexing: empty token" ->
      let pos = Lexing.lexeme_end_p lexbuf in
@@ -21,10 +26,9 @@ let parse s =
        (pos.Lexing.pos_cnum - pos.Lexing.pos_bol - 1)
 
 (** Interactive loop. *)
-let loop env =
+let loop envs =
   (* Current environment. *)
-  let env = ref env in
-  let ps = ref None in
+  let envs = ref envs in
   while true do
     try
       print_string "=^.^= ";
@@ -32,11 +36,24 @@ let loop env =
       if s = "exit" then
         exit 0
       else if s = "env" then
-        print_endline ("\n" ^ Lang.Env.to_string (List.rev !env))
+        print_endline ("\n" ^ Lang.Env.to_string (fst !envs))
+      else if s = "build" then
+        let s = read_line () in
+        let ps = Parser.ps Lexer.token (Lexing.from_string s) in
+        PS.check ps;
+        let ps = Subst.of_ps ps in
+        let ps = ref ps in
+        let loop = ref true in
+        while !loop do
+          print_string "=^o^= ";
+          let s = read_line () in
+          let ss = Subst.match_app (fst !envs) !ps (Var s) in
+          print_endline ("len: "^string_of_int (List.length ss))
+        done
       else
-        env := Lang.exec !env (parse s)
+        envs := Lang.exec !envs (parse s)
     with
-    | End_of_file -> exit 0
+    | End_of_file -> print_newline (); exit 0
     | Failure e -> print_endline ("Error: " ^ e ^ ".")
     | e -> print_endline ("Error: " ^ Printexc.to_string e)
   done

@@ -21,10 +21,19 @@ let () =
     ]
     (fun s -> file_in := s::!file_in)
     usage;
-  let env = Lang.Env.empty in
-  let env =
+  let envs = Lang.Env.empty, [] in
+  let envs =
     match !file_in with
-    | [f] -> Lang.exec env (parse_file f)
-    | _ -> env
+    | [f] -> Lang.exec envs (parse_file f)
+    | _ -> envs
   in
-  if !interactive then Prover.loop env
+
+  (* let ps = Parser.ps Lexer.token (Lexing.from_string "(x:*\)(y:*\)(f:x->y)(z:*\)(g:y->z)") in *)
+  (* Lang.PS.check ps; *)
+  (* let envps = Lang.Env.add_ps env ps in *)
+  (* let ps = LangExt.Subst.of_ps ps in *)
+  (* let ss = LangExt.Subst.match_app envps ps (Var "id2") in *)
+  (* print_endline ("len: "^string_of_int (List.length ss)); *)
+  (* List.iter (fun ps -> print_endline (Lang.to_string ps)) ss; *)
+
+  if !interactive then Prover.loop envs
