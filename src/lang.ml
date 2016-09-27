@@ -18,7 +18,6 @@ type var =
 type expr =
   | Var of var
   | EVar of (evar ref * subst) (* expression, substition, type *)
-  | Coh of ps * expr (* the list is reversed *)
   | Type
   | Obj
   | Arr of expr * expr
@@ -42,10 +41,6 @@ let string_of_var = function
 let rec to_string = function
   | Var x -> string_of_var x
   | EVar (x,_) -> (match !x with ENone(n,t) -> "?"^string_of_int n | ESome x -> to_string x (* "[" ^ to_string x ^ "]" *))
-  | Coh (p,t) ->
-     let p = String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") p) in
-     let t = to_string t in
-     Printf.sprintf "(coh %s => %s)" p t
   | Type -> "Type"
   | Obj -> "*"
   | Arr (x,y) -> to_string x ^ " -> " ^ to_string y
@@ -56,8 +51,10 @@ let rec to_string = function
 (** Free variables. *)
 let rec free_vars = function
   | Var x -> [x]
-  | EVar (x,s) -> (match !x with ENone _ -> [] | ESome x -> free_vars x) (* TODO: take substitution in account... *)
-  | Coh _ | Obj | Type -> []
+  | EVar (x,s) ->
+     (* assert false; *)
+     (match !x with ENone _ -> [] | ESome x -> free_vars x) (* TODO: take substitution in account... *)
+  | Obj | Type -> []
   | Arr (s,t) -> (free_vars s)@(free_vars t)
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
@@ -109,7 +106,6 @@ let occurs_evar v e =
     | Pi (x,t,u) -> aux t || aux u
     | Obj -> false
     | Arr (f,g) -> aux f || aux g
-    | Coh (ps,t) -> List.exists (fun (x,e) -> aux e) ps || aux t
   in
   aux e
 
@@ -127,19 +123,6 @@ let rec subst (s:subst) e =
   | EVar (x,s') -> (match !x with ENone _ -> EVar (x,s'@s) | ESome e -> subst (s'@s) e)
   | Type -> Type
   | Obj -> Obj
-  | Coh (ps,t) ->
-     let s = ref s in
-     let ps =
-       List.map
-         (fun (x,t) ->
-           let x' = fresh_var x in
-           let ans = x', subst !s t in
-           s := (x,Var x') :: !s;
-           ans
-         ) ps
-     in
-     let t = subst !s t in
-     Coh (ps,t)
   | Arr (x,y) -> Arr (subst s x, subst s y)
   | App (f,x) -> App (subst s f, subst s x)
   | Abs (x,t,e) ->
@@ -184,7 +167,6 @@ let generalize_evar e =
     | Pi (x,t,u) -> Pi (x, aux t, aux u)
     | Obj -> e
     | Arr (f,g) -> Arr (aux f, aux g)
-    | Coh (ps,t) -> Coh (List.map (fun (x,e) -> x, aux e) ps, aux t)
   in
   aux e
 
@@ -253,19 +235,6 @@ let rec normalize env e =
      let f = normalize env f in
      let g = normalize env g in
      Arr (f,g)
-  | Coh (ps,t) ->
-     let env, ps =
-       List.fold_left
-         (fun (env,ps) (x,t) ->
-           let t = normalize env t in
-           let ps = (x,t)::ps in
-           let env = Env.add env x t in
-           env,ps
-         ) (env,[]) ps
-     in
-     let ps = List.rev ps in
-     let t = normalize env t in
-     Coh (ps,t)
 
 (** Pasting schemes. *)
 module PS = struct
@@ -417,7 +386,86 @@ let rec infer_type env e =
        | _ -> error "unexpected type %s or %s for arrows" (to_string t) (to_string u)
      end;
      Type
-  | Coh (ps,t) ->
+
+(** Type inference where a Type is expected. *)
+and infer_univ env t =
+  let u = infer_type env t in
+  match normalize env u with
+  | Type -> ()
+  | u -> error "got %s, but type is expected" (to_string u)
+
+(** Equality between expressions. *)
+and eq env t1 t2 =
+  let rec eq t1 t2 =
+    (* Printf.printf "eq\n%s\n%s\n\n" (to_string t1) (to_string t2); *)
+    match t1, t2 with
+    | Var x1, Var x2 -> x1 = x2
+    | Pi (x1,t1,u1), Pi (x2,t2,u2) -> eq t1 t2 && eq u1 (subst [x2,Var x1] u2)
+    | Abs (x1,t1,e1), Abs (x2,t2,e2) -> eq t1 t2 && eq e1 (subst [x2,Var x1] e2)                               
+    | App (f1,e1), App (f2,e2) -> eq f1 f2 && eq e1 e2
+    | Type, Type -> true
+    | Obj, Obj -> true
+    | Arr (f1,g1), Arr (f2,g2) -> eq f1 f2 && eq g1 g2
+    | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
+    | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
+    | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
+    | EVar (x, _), t2 -> if occurs_evar t1 t2 then false else (x := ESome t2; eq t1 t2)
+    | t1, EVar(x, _) -> if occurs_evar t2 t1 then false else (x := ESome t1; eq t1 t2)
+    | (Var _ | Abs _ | App _ | Type | Pi _ | Obj | Arr _), _ -> false
+  in
+  eq (normalize env t1) (normalize env t2)
+
+(** A command. *)
+type cmd =
+  | Decl of var * expr
+  | Coh of var * ps * expr
+  | Axiom of var * expr
+  | Check of expr
+  | Eval of expr
+  | Set of string * string
+
+let string_of_cmd = function
+  | Decl (x,e) -> Printf.sprintf "let %s = %s" (string_of_var x) (to_string e)
+  | Coh (x,ps,e) -> Printf.sprintf "coh %s %s : %s" (string_of_var x) (PS.to_string ps) (to_string e)
+  | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
+  | Check e -> Printf.sprintf "check %s" (to_string e)
+  | Eval e -> Printf.sprintf "eval %s" (to_string e)
+  | Set (x,v) -> Printf.sprintf "set %s = %s" x v
+
+(** A program. *)
+type prog = cmd list
+
+(** Execute a command. *)
+let exec_cmd (env,s) cmd =
+  Printf.printf "=^.^= %s\n\n%!" (string_of_cmd cmd);
+  match cmd with
+  | Decl (x,e) ->
+     let e = subst s e in
+     let t = infer_type env e in
+     (* let e = normalize env e in *)
+     (* let t = infer_type env e in *)
+     let x' = fresh_var x in
+     info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
+     let env = Env.add env x' ~value:e t in
+     let s = (x,Var x')::s in
+     env,s
+  | Coh (x,ps,t) ->
+     (* Apply s. *)
+     let ps, t =
+       let s = ref s in
+       let ps =
+         List.map
+           (fun (x,t) ->
+             let x' = fresh_var x in
+             let ans = x', subst !s t in
+             s := (x,Var x') :: !s;
+             ans
+         ) ps
+       in
+       let t = subst !s t in
+       ps, t
+     in
+     (* Normalize types. *)
      let env =
        List.fold_left
          (fun env (x,t) ->
@@ -431,7 +479,7 @@ let rec infer_type env e =
      (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
      (* Printf.printf "type: %s\n%!" (to_string t); *)
      (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
-     debug "check pasting scheme %s" (PS.to_string ps);
+     (* debug "check pasting scheme %s" (PS.to_string ps); *)
      PS.check ps;
      if not !groupoid then
        begin
@@ -467,67 +515,9 @@ let rec infer_type env e =
                error "not algebraic: %s" bad;
            end;
        end;
-     List.fold_right (fun (x,t) u -> Pi (x,t,u)) ps t
-
-(** Type inference where a Type is expected. *)
-and infer_univ env t =
-  let u = infer_type env t in
-  match normalize env u with
-  | Type -> ()
-  | u -> error "got %s, but type is expected" (to_string u)
-
-(** Equality between expressions. *)
-and eq env t1 t2 =
-  let rec eq t1 t2 =
-    (* Printf.printf "eq\n%s\n%s\n\n" (to_string t1) (to_string t2); *)
-    match t1, t2 with
-    | Var x1, Var x2 -> x1 = x2
-    | Pi (x1,t1,u1), Pi (x2,t2,u2) -> eq t1 t2 && eq u1 (subst [x2,Var x1] u2)
-    | Abs (x1,t1,e1), Abs (x2,t2,e2) -> eq t1 t2 && eq e1 (subst [x2,Var x1] e2)                               
-    | App (f1,e1), App (f2,e2) -> eq f1 f2 && eq e1 e2
-    | Type, Type -> true
-    | Obj, Obj -> true
-    | Arr (f1,g1), Arr (f2,g2) -> eq f1 f2 && eq g1 g2
-    | Coh (ps1,t1), Coh (ps2,t2) ->
-       let s = ref [] in
-       List.length ps1 = List.length ps2
-       && List.for_all2
-            (fun (x1,t1) (x2,t2) ->
-              let ans = eq t1 (subst !s t2) in
-              s := (x2,Var x1) :: !s;
-              ans
-            ) ps1 ps2
-       && eq t1 (subst !s t2)
-    | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
-    | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
-    | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
-    | EVar (x, _), t2 -> if occurs_evar t1 t2 then false else (x := ESome t2; eq t1 t2)
-    | t1, EVar(x, _) -> if occurs_evar t2 t1 then false else (x := ESome t1; eq t1 t2)
-    | (Var _ | Abs _ | App _ | Type | Pi _ | Obj | Arr _ | Coh _), _ -> false
-  in
-  eq (normalize env t1) (normalize env t2)
-
-(** A command. *)
-type cmd =
-  | Decl of var * expr
-  | Axiom of var * expr
-  | Check of expr
-  | Eval of expr
-  | Set of string * string
-
-(** A program. *)
-type prog = cmd list
-
-(** Execute a command. *)
-let exec_cmd (env,s) = function
-  | Decl (x,e) ->
-     let e = subst s e in
-     let t = infer_type env e in
-     (* let e = normalize env e in *)
-     (* let t = infer_type env e in *)
+     let t = List.fold_right (fun (x,t) u -> Pi (x,t,u)) ps t in
      let x' = fresh_var x in
-     info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
-     let env = Env.add env x' ~value:e t in
+     let env = Env.add env x' t in
      let s = (x,Var x')::s in
      env,s
   | Axiom (x,t) ->
