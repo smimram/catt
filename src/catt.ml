@@ -30,9 +30,9 @@ let () =
 
   (* let ps = Parser.ps Lexer.token (Lexing.from_string "(x:*\)(y:*\)(f:x->y)(z:*\)(g:y->z)") in *)
   (* Lang.PS.check ps; *)
-  (* let envps = Lang.Env.add_ps env ps in *)
+  (* let envps = Lang.Env.add_ps (fst envs) ps in *)
   (* let ps = LangExt.Subst.of_ps ps in *)
-  (* let ss = LangExt.Subst.match_app envps ps (Var "id2") in *)
+  (* let ss = LangExt.Subst.match_app envps ps (Lang.subst (snd envs) (Lang.Var (Lang.VIdent "id2"))) in *)
   (* print_endline ("len: "^string_of_int (List.length ss)); *)
   (* List.iter (fun ps -> print_endline (Lang.to_string ps)) ss; *)
 

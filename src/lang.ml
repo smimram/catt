@@ -39,18 +39,26 @@ let string_of_var = function
 
 (** String representation. *)
 let rec to_string ?(pa=false) e =
-  let pab = pa in
   let to_string pa e = to_string ~pa e in
   let pa s = if pa then "("^s^")" else s in
   match e with
   | Var x -> string_of_var x
-  | EVar (x,_) -> (match !x with ENone(n,t) -> "?"^string_of_int n | ESome x -> to_string pab x (* "[" ^ to_string x ^ "]" *))
+  | EVar (x,_) -> string_of_evar !x
   | Type -> "Type"
   | Obj -> "*"
   | Arr (x,y) -> pa (to_string false x ^ " -> " ^ to_string false y)
   | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u)
   | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e)
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
+
+and string_of_evar = function
+  | ENone(n,t) ->
+     "?"^string_of_int n
+  (* Printf.sprintf "(?%d:%s)" n (to_string false t) *)
+  | ESome x -> to_string ~pa:true x
+(* "[" ^ to_string false x ^ "]" *)
+
+let string_of_evarref x = string_of_evar !x
 
 (** Generate a fresh variable name. *)
 let fresh_var =
@@ -80,9 +88,11 @@ let fresh_inevar =
   let t = EVar (ref (ENone ((incr n; !n), Type)), []) in
   ref (ENone ((incr n; !n), t))
 
+(** Generate a fresh meta-variable. *)
 let fresh_evar () =
   EVar (fresh_inevar (), [])
 
+(** Whether a meta-variable occurs in a term. *)
 let occurs_evar v e =
   let x =
     match v with
@@ -135,18 +145,17 @@ let rec unevar = function
   | EVar ({contents = ESome e}, s) -> unevar (subst s e)
   | e -> e
 
-(** Free variables. *)
-let rec free_vars e =
-  (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
+(** Free meta-variables. *)
+(* Note we could compare contents, but it is safer to compare evars by comparing
+their references. *)
+let rec free_evar e =
   match unevar e with
-  | Var x -> [x]
-  | EVar (x,s) -> assert false
-  | Obj | Type -> []
-  | Arr (s,t) -> (free_vars s)@(free_vars t)
-  | App (f,x) -> (free_vars f)@(free_vars x)
-  | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
-  | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
-
+  | EVar (x,_) -> [x]
+  | Var _ | Type | Obj -> []
+  | Abs (_,t,e) -> List.diffq (free_evar e) (free_evar t)
+  | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
+  | Arr (f, g) -> List.unionq (free_evar f) (free_evar g)
+  | Pi (_,t,u) -> List.unionq (free_evar t) (free_evar u)
 
 (** Replace EVars by fresh ones. *)
 (* TODO: use levels? *)
@@ -174,6 +183,18 @@ let generalize_evar e =
     | Arr (f,g) -> Arr (aux f, aux g)
   in
   aux e
+
+(** Free variables. *)
+let rec free_vars e =
+  (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
+  match unevar e with
+  | Var x -> [x]
+  | EVar (x,s) -> assert false
+  | Obj | Type -> []
+  | Arr (s,t) -> (free_vars s)@(free_vars t)
+  | App (f,x) -> (free_vars f)@(free_vars x)
+  | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
+  | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
 
 (** Typing environment. *)
 module Env = struct
@@ -423,20 +444,22 @@ and eq env t1 t2 =
 
 (** A command. *)
 type cmd =
-  | Decl of var * expr
+  | Decl of bool * var * expr (** Declaration: the first boolean indicates wheter meta-variables are allowed. *)
   | Coh of var * ps * expr
   | Axiom of var * expr
   | Check of expr
   | Eval of expr
+  | Env (** Display the environment. *)
   | Set of string * string
 
 let string_of_cmd = function
-  | Decl (x,e) -> Printf.sprintf "let %s = %s" (string_of_var x) (to_string e)
+  | Decl (mv,x,e) -> Printf.sprintf "%s %s = %s" (if mv then "let" else "def") (string_of_var x) (to_string e)
   | Coh (x,ps,e) -> Printf.sprintf "coh %s %s : %s" (string_of_var x) (PS.to_string ps) (to_string e)
   | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
   | Check e -> Printf.sprintf "check %s" (to_string e)
   | Eval e -> Printf.sprintf "eval %s" (to_string e)
   | Set (x,v) -> Printf.sprintf "set %s = %s" x v
+  | Env -> "env"
 
 (** A program. *)
 type prog = cmd list
@@ -445,13 +468,20 @@ type prog = cmd list
 let exec_cmd (env,s) cmd =
   command "%s" (string_of_cmd cmd);
   match cmd with
-  | Decl (x,e) ->
+  | Decl (mv,x,e) ->
      let e = subst s e in
      let t = infer_type env e in
      (* let e = normalize env e in *)
      (* let t = infer_type env e in *)
      let x' = fresh_var x in
      info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
+     (* Try to resolve meta-vairables. *)
+     if not mv then ignore (infer_type env (normalize env e));
+     if not mv && free_evar e <> [] then
+       (
+         let mv = String.concat ", " (List.map string_of_evarref (free_evar e)) in
+         error "expression %s has meta-variables %s" (to_string e) mv
+       );
      let env = Env.add env x' ~value:e t in
      let s = (x,Var x')::s in
      env,s
@@ -466,7 +496,7 @@ let exec_cmd (env,s) cmd =
              let ans = x', subst !s t in
              s := (x,Var x') :: !s;
              ans
-         ) ps
+           ) ps
        in
        let t = subst !s t in
        ps, t
@@ -514,9 +544,6 @@ let exec_cmd (env,s) cmd =
                 || not (List.included fvt fvg)
              then
                let bad = List.union (List.diff fvs fvf) (List.diff fvt fvg) in
-               Printf.printf "source (ps): %s\n%!" (PS.to_string (PS.source (i-1) ps));
-               Printf.printf "source     : %s\n%!" (to_string f);
-               Printf.printf "source     : %s\n%!" (to_string (normalize env f));
                let bad = String.concat ", " (List.map string_of_var bad) in
                error "not algebraic: %s" bad;
            end;
@@ -544,6 +571,9 @@ let exec_cmd (env,s) cmd =
      let e = normalize env e in
      let t = infer_type env e in
      printf "    %s\n    = %s\n    : %s\n%!" (to_string e0) (to_string e) (to_string t);
+     env,s
+  | Env ->
+     print_endline ("\n" ^ Env.to_string env);
      env,s
   | Set (o,v) ->
      if o = "groupoid" then

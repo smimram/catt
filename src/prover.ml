@@ -35,8 +35,6 @@ let loop envs =
       let s = read_line () in
       if s = "exit" then
         exit 0
-      else if s = "env" then
-        print_endline ("\n" ^ Lang.Env.to_string (fst !envs))
       else if s = "build" then
         let s = read_line () in
         let ps = Parser.ps Lexer.token (Lexing.from_string s) in

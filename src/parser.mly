@@ -7,10 +7,10 @@
       | [] -> e
 %}
 
-%token COH LET SET ARR ARROW OBJ
+%token COH LET LETM SET ARR ARROW OBJ
 %token LPAR RPAR COL EQ US
 %token <string> IDENT
-%token CHECK EVAL HYP
+%token CHECK EVAL HYP ENV
 %token EOF
 
 %right ARR ARROW
@@ -25,18 +25,21 @@ prog:
     | EOF { [] }
 
 cmd:
-    | LET var args EQ expr { Decl ($2,abs $3 $5) }
+    | LET var args EQ expr { Decl (false,$2,abs $3 $5) }
+    | LETM var args EQ expr { Decl (true,$2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
     | COH var args COL expr { Coh ($2,$3,$5) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
+    | ENV { Env }
 
 var:
     | IDENT { VIdent $1 }
 
 args:
     | LPAR var COL expr RPAR args { ($2,$4)::$6 }
+    | var args { ($1,fresh_evar ())::$2 }
     | { [] }
 
 ps:

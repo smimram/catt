@@ -59,8 +59,14 @@ module List = struct
   let union l1 l2 =
     fold_left (fun l x -> if not (mem x l) then x::l else l) l2 l1
 
+  let unionq l1 l2 =
+    fold_left (fun l x -> if not (memq x l) then x::l else l) l2 l1
+
   let diff l1 l2 =
     filter (fun x -> not (mem x l2)) l1
+
+  let diffq l1 l2 =
+    filter (fun x -> not (memq x l2)) l1
 
   let bind f l =
     flatten (List.map f l)
