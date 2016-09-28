@@ -1,5 +1,8 @@
 catt
+catt.js
 lexer.ml
 parser.ml
 parser.mli
 parser.conflicts
+._bcdi
+*.cmo

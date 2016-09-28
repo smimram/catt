@@ -1,0 +1,17 @@
+h1 {
+    text-align: center;
+}
+
+#send {
+    visibility: hidden;
+}
+
+#toplevel {
+    text-align: center;
+}
+
+textarea {
+    color: lightgreen;
+    background-color: black;
+    width: 90%;
+}
