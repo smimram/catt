@@ -21,6 +21,7 @@ type expr =
   | Var of var
   | EVar of (evar ref * subst) (** expression, substition *)
   | Type
+  | HomType
   | Obj
   | Arr of expr * expr * expr
   | Pi of var * expr * expr
@@ -48,6 +49,7 @@ let rec to_string ?(pa=false) e =
   | Var x -> string_of_var x
   | EVar (x,_) -> string_of_evar !x
   | Type -> "Type"
+  | HomType -> "HomType"
   | Obj -> "*"
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
   | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
@@ -109,6 +111,7 @@ let occurs_evar v e =
     | Abs (x,t,e) -> aux t || aux e
     | App (f,e) -> aux f || aux e
     | Pi (x,t,u) -> aux t || aux u
+    | HomType -> false
     | Obj -> false
     | Arr (t,f,g) -> aux t || aux f || aux g
   in
@@ -127,6 +130,7 @@ let rec subst (s:subst) e =
      end
   | EVar (x,s') -> (match !x with ENone _ -> EVar (x,s'@s) | ESome e -> subst (s'@s) e)
   | Type -> Type
+  | HomType -> HomType
   | Obj -> Obj
   | Arr (t,x,y) -> Arr (subst s t, subst s x, subst s y)
   | App (f,x) -> App (subst s f, subst s x)
@@ -154,7 +158,7 @@ their references. *)
 let rec free_evar e =
   match unevar e with
   | EVar (x,_) -> [x]
-  | Var _ | Type | Obj -> []
+  | Var _ | Type | HomType | Obj -> []
   | Abs (_,t,e) -> List.diffq (free_evar e) (free_evar t)
   | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
   | Arr (t, f, g) -> List.unionq (free_evar t) (List.unionq (free_evar f) (free_evar g))
@@ -182,7 +186,7 @@ let generalize_evar e =
     | Abs (x,t,e) -> Abs (x, aux t, aux e)
     | App (f,e) -> App (aux f, aux e)
     | Pi (x,t,u) -> Pi (x, aux t, aux u)
-    | Obj -> e
+    | HomType | Obj -> e
     | Arr (t,f,g) -> Arr (aux t, aux f, aux g)
   in
   aux e
@@ -193,7 +197,7 @@ let rec free_vars e =
   match unevar e with
   | Var x -> [x]
   | EVar (x,s) -> assert false
-  | Obj | Type -> []
+  | Type | HomType | Obj -> []
   | Arr (t,f,g) -> (free_vars t)@(free_vars f)@(free_vars g)
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
@@ -251,6 +255,7 @@ let rec normalize env e =
        | _ -> App (f, e)
      end
   | Type -> Type
+  | HomType -> HomType
   | Pi (x,t,u) ->
      let t = normalize env t in
      let u = normalize (Env.add env x t) u in
@@ -392,26 +397,20 @@ let rec infer_type env e =
      let te = infer_type env e in
      if not (leq env te t) then error "got %s, but %s is expected" (to_string te) (to_string t);
      subst [x,e] u
-  | Obj -> Type
+  | HomType -> Type
+  | Obj -> HomType
   | Arr (t,f,g) ->
-     infer_univ env t;
-     let tf = infer_type env f in
-     let tg = infer_type env g in
-     let is_arr e =
-       match unevar e with
-       | Arr _ | Obj -> true
-       | _ -> false
-     in
-     if not (is_arr tf) then error "got %s, but arrow type is expected" (to_string tf);
-     if not (is_arr tg) then error "got %s, but arrow type is expected" (to_string tg);
-     if not (leq env tf t) then error "got %s, but %s is expected" (to_string tf) (to_string t);
-     if not (leq env tg t) then error "got %s, but %s is expected" (to_string tg) (to_string t);
-     Type
+     infer_leq env t HomType;
+     infer_leq env f t;
+     infer_leq env g t;
+     HomType
 
-(** Type inference where a Type is expected. *)
+and infer_leq env e t =
+    let te = infer_type env e in
+    if not (leq env te t) then error "got %s, but %s is expected" (to_string te) (to_string t)
+
 and infer_univ env t =
-  let u = infer_type env t in
-  if not (leq env u Type) then error "got %s, but type is expected" (to_string u)
+  infer_leq env t Type
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
@@ -425,6 +424,8 @@ and leq env e1 e2 =
     | Abs (x1,t1,e1), Abs (x2,t2,e2) -> leq t2 t1 && leq e1 (subst [x2,Var x1] e2)
     | App (f1,e1), App (f2,e2) -> leq f1 f2 && leq e1 e2
     | Type, Type -> true
+    | HomType, HomType -> true
+    | HomType, Type -> true
     | Obj, Obj -> true
     | Arr (t1,f1,g1), Arr (t2,f2,g2) -> leq t1 t2 && leq f1 f2 && leq g1 g2
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
@@ -438,7 +439,7 @@ and leq env e1 e2 =
        if occurs_evar e2 e1 then false
        (* else if not (eq t (infer_type env (subst s t1))) then false *)
        else (x := ESome e1; leq e1 e2)
-    | (Var _ | Abs _ | App _ | Type | Pi _ | Obj | Arr _), _ -> false
+    | (Var _ | Abs _ | App _ | Type | HomType | Pi _ | Obj | Arr _), _ -> false
     | EVar _, _ -> assert false
   in
   leq (normalize env e1) (normalize env e2)
