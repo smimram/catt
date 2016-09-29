@@ -7,7 +7,6 @@ let space = ' ' | '\t' | '\r'
 rule token = parse
   | "coh" { COH }
   | "let" { LET }
-  | "letm" { LETM }
   | "set" { SET }
   | "hyp" { HYP }
   | "check" { CHECK }

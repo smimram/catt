@@ -8,6 +8,8 @@ open Common
 
 (** Do we want the theory of groupoids? *)
 let groupoid = ref false
+(** Do we allow unsafe uses of meta-variables? *)
+let unsafe_evars = ref false
 
 (** A variable. *)
 type var =
@@ -435,7 +437,7 @@ and eq env t1 t2 =
 
 (** A command. *)
 type cmd =
-  | Decl of bool * var * expr (** Declaration: the first boolean indicates wheter meta-variables are allowed. *)
+  | Decl of var * expr
   | Coh of var * ps * expr
   | Axiom of var * expr
   | Check of expr
@@ -444,7 +446,7 @@ type cmd =
   | Set of string * string
 
 let string_of_cmd = function
-  | Decl (mv,x,e) -> Printf.sprintf "%s %s = %s" (if mv then "letm" else "let") (string_of_var x) (to_string e)
+  | Decl (x,e) -> Printf.sprintf "let %s = %s" (string_of_var x) (to_string e)
   | Coh (x,ps,e) -> Printf.sprintf "coh %s %s : %s" (string_of_var x) (PS.to_string ps) (to_string e)
   | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
   | Check e -> Printf.sprintf "check %s" (to_string e)
@@ -459,7 +461,7 @@ type prog = cmd list
 let exec_cmd (env,s) cmd =
   command "%s" (string_of_cmd cmd);
   match cmd with
-  | Decl (mv,x,e) ->
+  | Decl (x,e) ->
      let e = subst s e in
      let t = infer_type env e in
      (* let e = normalize env e in *)
@@ -467,8 +469,8 @@ let exec_cmd (env,s) cmd =
      let x' = fresh_var x in
      info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
      (* Try to resolve meta-vairables. *)
-     if not mv then ignore (infer_type env (normalize env e));
-     if not mv && free_evar e <> [] then
+     (* if not mv then ignore (infer_type env (normalize env e)); *)
+     if not !unsafe_evars && free_evar e <> [] then
        (
          let mv = String.concat ", " (List.map string_of_evarref (free_evar e)) in
          error "expression %s has meta-variables %s" (to_string e) mv
@@ -567,11 +569,16 @@ let exec_cmd (env,s) cmd =
      print_endline ("\n" ^ Env.to_string env);
      env,s
   | Set (o,v) ->
+     let bool () =
+       if v = "true" then true
+       else if v = "false" then false
+       else error "unknown value %s for option %s" v o
+     in
      if o = "groupoid" then
        (* Switch groupoid mode. *)
-       if v = "true" then groupoid := true
-       else if v = "false" then groupoid := false
-       else error "unknown value %s for option %s" v o
+       groupoid := bool ()
+     else if o = "unsafe-evars" then
+       unsafe_evars := bool ()
      else
        error "unknown option %s" o;
      env,s

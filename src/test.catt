@@ -16,7 +16,9 @@ coh assoc
 let assoc f g h = assoc _ _ f _ g _ h
 
 coh id (x : *) : (x -> x)
-letm id = id _
+set unsafe-evars = true
+let id = id _
+set unsafe-evars = false
 
 coh unitl
     (x : *)
