@@ -380,11 +380,11 @@ let rec infer_type env e =
   | EVar (x,s) -> (match !x with ENone (n,t) -> t | ESome e -> infer_type env (subst s e))
   | Type -> Type
   | Pi (x,t,u) ->
-     infer_univ env t;
-     infer_univ (Env.add env x t) u;
+     check_type env t Type;
+     check_type (Env.add env x t) u Type;
      Type
   | Abs (x,t,e) ->
-     infer_univ env t;
+     check_type env t Type;
      let u = infer_type (Env.add env x t) e in
      Pi (x,t,u)
   | App (f,e) ->
@@ -400,17 +400,14 @@ let rec infer_type env e =
   | HomType -> Type
   | Obj -> HomType
   | Arr (t,f,g) ->
-     infer_leq env t HomType;
-     infer_leq env f t;
-     infer_leq env g t;
+     check_type env t HomType;
+     check_type env f t;
+     check_type env g t;
      HomType
 
-and infer_leq env e t =
+and check_type env e t =
     let te = infer_type env e in
     if not (leq env te t) then error "got %s, but %s is expected" (to_string te) (to_string t)
-
-and infer_univ env t =
-  infer_leq env t Type
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
@@ -508,12 +505,12 @@ let exec_cmd (env,s) cmd =
        List.fold_left
          (fun env (x,t) ->
            let t = normalize env t in
-           infer_univ env t;
+           check_type env t Type;
            Env.add env x t
          ) env ps
      in
      let t = normalize env t in
-     infer_univ env t;
+     check_type env t Type;
      (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
      (* Printf.printf "type: %s\n%!" (to_string t); *)
      (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
@@ -559,7 +556,7 @@ let exec_cmd (env,s) cmd =
   | Axiom (x,t) ->
      let t = subst s t in
      let x' = fresh_var x in
-     infer_univ env t;
+     check_type env t Type;
      let env = Env.add env x' t in
      let s = (x,Var x')::s in
      env,s
