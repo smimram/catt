@@ -26,6 +26,7 @@ coh unitl
     :
     comp id f -> f
 let unitl f = unitl _ _ f
+let unit1l = unitl
 
 coh unitr
     (x : *)
@@ -33,6 +34,15 @@ coh unitr
     :
     comp f id -> f
 let unitr f = unitr _ _ f
+let unit1r = unitr
+
+coh unitr'
+    (x : *)
+    (y : *) (f : x -> y)
+    :
+    f -> comp f id
+let unitr' f = unitr' _ _ f
+let unit1r' f = unitr'
 
 let id1 = id
 let comp1 = comp
@@ -54,11 +64,30 @@ coh vcomp
 let vcomp a b = vcomp _ _ _ _ a _ b
 let comp2 = vcomp
 
-coh comp12 (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) (g' : y -> z) (a : g -> g') : comp f g -> comp f g'
+coh comp12
+    (x : *)
+    (y : *) (f : x -> y)
+    (z : *) (g : y -> z)
+    (g' : y -> z) (a : g -> g')
+    :
+    comp f g -> comp f g'
 let comp12 f a = comp12 _ _ f _ _ _ a
 
-coh comp21 (x : *) (y : *) (f : x -> y) (f' : x -> y) (a : f -> f') (z : *) (g : y -> z) : comp f g -> comp f' g
+coh comp21
+    (x : *)
+    (y : *) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : *) (g : y -> z)
+    :
+    comp f g -> comp f' g
 let comp21 a g = comp21 _ _ _ _ a _ g
+
+coh unit12l
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    comp2 (unit1r' f) (comp2 (comp12 id a) (unit1r g)) -> a
 
 # coh hcomp
     # (x : *)
@@ -69,8 +98,7 @@ let comp21 a g = comp21 _ _ _ _ a _ g
     # :
     # comp f g -> comp f' g'
 # let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
-
-# let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
+let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
 
 # coh ichg
     # (x : *)
@@ -84,12 +112,17 @@ let comp21 a g = comp21 _ _ _ _ a _ g
     # hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
 # let ichg (a : _ -> _) (b : _ -> _) (c : _ -> _) (d : _ -> _) = ichg _ _ _ _ a _ b _ _ _ c _ d
 
-let eckmann-hilton (a : id -> id) (b : id -> id) = comp2 (comp21 a _) (comp12 _ b)
+coh ichg2
+    (x : *)
+    (y : *) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : *) (g : y -> z)
+    (g' : y -> z) (b : g -> g')
+    :
+    comp2 (comp21 a g) (comp12 f' b) -> comp2 (comp12 f b) (comp21 a g')
 
-# BUG:
-# let f (a : id -> id) = comp a a
-
-# eval f
+let eckmann-hilton (a : id -> id) (b : id -> id) =
+    comp2 (comp21 a id) (comp12 id b)
 
 
 
