@@ -385,12 +385,12 @@ let rec infer_type env e =
   | App (f,e) ->
      let t = infer_type env f in
      let x,t,u =
-       match t with
+       match unevar t with
        | Pi (x,t,u) -> x,t,u
        | t -> error "got %s : %s, but a function is expected" (to_string f) (to_string t)
      in
-     let t' = infer_type env e in
-     if not (eq env t t') then error "got %s, but %s is expected" (to_string t') (to_string t);
+     let te = infer_type env e in
+     if not (leq env te t) then error "got %s, but %s is expected" (to_string te) (to_string t);
      subst [x,e] u
   | Obj -> Type
   | Arr (t,f,g) ->
@@ -404,45 +404,44 @@ let rec infer_type env e =
      in
      if not (is_arr tf) then error "got %s, but arrow type is expected" (to_string tf);
      if not (is_arr tg) then error "got %s, but arrow type is expected" (to_string tg);
-     if not (eq env tf t) then error "got %s, but %s is expected" (to_string tf) (to_string t);
-     if not (eq env tg t) then error "got %s, but %s is expected" (to_string tg) (to_string t);
+     if not (leq env tf t) then error "got %s, but %s is expected" (to_string tf) (to_string t);
+     if not (leq env tg t) then error "got %s, but %s is expected" (to_string tg) (to_string t);
      Type
 
 (** Type inference where a Type is expected. *)
 and infer_univ env t =
   let u = infer_type env t in
-  match normalize env u with
-  | Type -> ()
-  | EVar ({contents = ESome t}, s) -> infer_univ env (subst s t)
-  | EVar (x, _) -> x := ESome Type
-  | u -> error "got %s, but type is expected" (to_string u)
+  if not (leq env u Type) then error "got %s, but type is expected" (to_string u)
 
-(** Equality between expressions. *)
-and eq env t1 t2 =
-  let rec eq t1 t2 =
-    (* Printf.printf "eq\n%s\n%s\n\n" (to_string t1) (to_string t2); *)
-    match t1, t2 with
+(** Subtype relation between expressions. *)
+and leq env e1 e2 =
+  let rec leq e1 e2 =
+    (* Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2); *)
+    let e1 = unevar e1 in
+    let e2 = unevar e2 in
+    match e1, e2 with
     | Var x1, Var x2 -> x1 = x2
-    | Pi (x1,t1,u1), Pi (x2,t2,u2) -> eq t1 t2 && eq u1 (subst [x2,Var x1] u2)
-    | Abs (x1,t1,e1), Abs (x2,t2,e2) -> eq t1 t2 && eq e1 (subst [x2,Var x1] e2)                               
-    | App (f1,e1), App (f2,e2) -> eq f1 f2 && eq e1 e2
+    | Pi (x1,t1,u1), Pi (x2,t2,u2) -> leq t2 t1 && leq u1 (subst [x2,Var x1] u2)
+    | Abs (x1,t1,e1), Abs (x2,t2,e2) -> leq t2 t1 && leq e1 (subst [x2,Var x1] e2)
+    | App (f1,e1), App (f2,e2) -> leq f1 f2 && leq e1 e2
     | Type, Type -> true
     | Obj, Obj -> true
-    | Arr (t1,f1,g1), Arr (t2,f2,g2) -> eq t1 t2 && eq f1 f2 && eq g1 g2
+    | Arr (t1,f1,g1), Arr (t2,f2,g2) -> leq t1 t2 && leq f1 f2 && leq g1 g2
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
-    | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
-    | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
-    | EVar ({contents = ENone (n,t)} as x, s), t2 ->
-       if occurs_evar t1 t2 then false
+    (* | EVar ({contents = ESome t}, s), _ -> leq (subst s t) t2 *)
+    (* | _, EVar ({contents = ESome t}, s) -> leq t1 (subst s t) *)
+    | EVar ({contents = ENone (n,t)} as x, s), e2 ->
+       if occurs_evar e1 e2 then false
        (* else if not (eq t (infer_type env (subst s t2))) then false *)
-       else (x := ESome t2; eq t1 t2)
-    | t1, EVar({contents = ENone (n,t)} as x, s) ->
-       if occurs_evar t2 t1 then false
+       else (x := ESome e2; leq e1 e2)
+    | e1, EVar({contents = ENone (n,t)} as x, s) ->
+       if occurs_evar e2 e1 then false
        (* else if not (eq t (infer_type env (subst s t1))) then false *)
-       else (x := ESome t1; eq t1 t2)
+       else (x := ESome e1; leq e1 e2)
     | (Var _ | Abs _ | App _ | Type | Pi _ | Obj | Arr _), _ -> false
+    | EVar _, _ -> assert false
   in
-  eq (normalize env t1) (normalize env t2)
+  leq (normalize env e1) (normalize env e2)
 
 (** A command. *)
 type cmd =
