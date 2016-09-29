@@ -7,7 +7,7 @@
       | [] -> e
 %}
 
-%token COH LET SET ARR ARROW OBJ
+%token COH LET SET ARR ARROW OBJ TYPE
 %token LPAR RPAR COL EQ US
 %token <string> IDENT
 %token CHECK EVAL HYP ENV
@@ -47,6 +47,7 @@ ps:
 simple_expr:
     | LPAR expr RPAR { $2 }
     | var { Var $1 }
+    | TYPE { Type }
     | OBJ { Obj }
     | US { fresh_evar () }
 

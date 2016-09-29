@@ -19,7 +19,7 @@ type var =
 (** An expression. *)
 type expr =
   | Var of var
-  | EVar of (evar ref * subst) (* expression, substition, type *)
+  | EVar of (evar ref * subst) (** expression, substition *)
   | Type
   | Obj
   | Arr of expr * expr * expr
@@ -32,7 +32,7 @@ type expr =
  (** A substitution. *)
  and subst = (var * expr) list
  and evar =
-   | ENone of int * expr (* unknown variable with given number and type *)
+   | ENone of int * expr (** unknown variable with given number and type *)
    | ESome of expr
 
 let string_of_var = function
@@ -57,7 +57,7 @@ let rec to_string ?(pa=false) e =
 and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
      "?"^string_of_int n
-  (* Printf.sprintf "(?%d:%s)" n (to_string false t) *)
+     (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
   | ESome x -> to_string ~pa x
 (* "[" ^ to_string false x ^ "]" *)
 
@@ -379,6 +379,7 @@ let rec infer_type env e =
      infer_univ (Env.add env x t) u;
      Type
   | Abs (x,t,e) ->
+     infer_univ env t;
      let u = infer_type (Env.add env x t) e in
      Pi (x,t,u)
   | App (f,e) ->
@@ -392,11 +393,12 @@ let rec infer_type env e =
      if not (eq env t t') then error "got %s, but %s is expected" (to_string t') (to_string t);
      subst [x,e] u
   | Obj -> Type
-  | Arr (t, f, g) ->
+  | Arr (t,f,g) ->
      infer_univ env t;
      let tf = infer_type env f in
      let tg = infer_type env g in
-     let is_arr = function
+     let is_arr e =
+       match unevar e with
        | Arr _ | Obj -> true
        | _ -> false
      in
@@ -430,8 +432,14 @@ and eq env t1 t2 =
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
     | EVar ({contents = ESome t}, s), _ -> eq (subst s t) t2
     | _, EVar ({contents = ESome t}, s) -> eq t1 (subst s t)
-    | EVar (x, _), t2 -> if occurs_evar t1 t2 then false else (x := ESome t2; eq t1 t2)
-    | t1, EVar(x, _) -> if occurs_evar t2 t1 then false else (x := ESome t1; eq t1 t2)
+    | EVar ({contents = ENone (n,t)} as x, s), t2 ->
+       if occurs_evar t1 t2 then false
+       (* else if not (eq t (infer_type env (subst s t2))) then false *)
+       else (x := ESome t2; eq t1 t2)
+    | t1, EVar({contents = ENone (n,t)} as x, s) ->
+       if occurs_evar t2 t1 then false
+       (* else if not (eq t (infer_type env (subst s t1))) then false *)
+       else (x := ESome t1; eq t1 t2)
     | (Var _ | Abs _ | App _ | Type | Pi _ | Obj | Arr _), _ -> false
   in
   eq (normalize env t1) (normalize env t2)
@@ -546,6 +554,7 @@ let exec_cmd (env,s) cmd =
      let x' = fresh_var x in
      let env = Env.add env x' t in
      let s = (x,Var x')::s in
+     info "%s : %s" (string_of_var x') (to_string t);
      env,s
   | Axiom (x,t) ->
      let t = subst s t in

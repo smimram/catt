@@ -70,7 +70,7 @@ let comp21 a g = comp21 _ _ _ _ a _ g
     # comp f g -> comp f' g'
 # let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
 
-let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
+# let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
 
 # coh ichg
     # (x : *)
@@ -84,18 +84,24 @@ let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
     # hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
 # let ichg (a : _ -> _) (b : _ -> _) (c : _ -> _) (d : _ -> _) = ichg _ _ _ _ a _ b _ _ _ c _ d
 
-# let unit12-inv
-
 let eckmann-hilton (a : id -> id) (b : id -> id) = comp2 (comp21 a _) (comp12 _ b)
 
-hyp x : *
-hyp y : *
-hyp z : *
-hyp f : x -> y
-hyp g : y -> z
-eval (comp f g)
+# BUG:
+# let f (a : id -> id) = comp a a
+
+# eval f
 
 
-set groupoid = true
 
-coh inv (x : *) (y : *) (f : x -> y) : y -> x
+
+# hyp x : *
+# hyp y : *
+# hyp z : *
+# hyp f : x -> y
+# hyp g : y -> z
+# eval (comp f g)
+
+
+# set groupoid = true
+
+# coh inv (x : *) (y : *) (f : x -> y) : y -> x
