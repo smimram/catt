@@ -41,6 +41,7 @@ let string_of_var = function
 
 (** String representation. *)
 let rec to_string ?(pa=false) e =
+  let string_of_evar x = string_of_evar ~pa x in
   let to_string pa e = to_string ~pa e in
   let pa s = if pa then "("^s^")" else s in
   match e with
@@ -48,16 +49,16 @@ let rec to_string ?(pa=false) e =
   | EVar (x,_) -> string_of_evar !x
   | Type -> "Type"
   | Obj -> "*"
-  | Arr (t,f,g) -> pa (Printf.sprintf "%s -%s-> %s" (to_string false f) (to_string true t) (to_string false g))
-  | Pi (x,t,u) -> Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u)
-  | Abs (x,t,e) -> Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e)
+  | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
+  | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
+  | Abs (x,t,e) -> pa (Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e))
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
 
-and string_of_evar = function
+and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
      "?"^string_of_int n
   (* Printf.sprintf "(?%d:%s)" n (to_string false t) *)
-  | ESome x -> to_string ~pa:true x
+  | ESome x -> to_string ~pa x
 (* "[" ^ to_string false x ^ "]" *)
 
 let string_of_evarref x = string_of_evar !x

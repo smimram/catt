@@ -86,7 +86,7 @@ let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
 
 # let unit12-inv
 
-# let eckmann-hilton (a : id -> id) (b : id -> id) = _
+let eckmann-hilton (a : id -> id) (b : id -> id) = comp2 (comp21 a _) (comp12 _ b)
 
 hyp x : *
 hyp y : *
