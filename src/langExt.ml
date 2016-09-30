@@ -10,19 +10,19 @@ module Subst = struct
 
   (** Create from a pasting scheme. *)
   let of_ps (ps:PS.t) : t =
-    List.map (fun (x,t) -> Var x, t) ps
+    List.map (fun (x,t) -> mk (Var x), t) ps
 
   let dummy = Var (VIdent "?")
 
   (** Compute all the possible applications of a function to a substitution. *)
   let match_app env ps f =
     let rec aux f =
-      match infer_type env f with
+      match (unevar (infer_type env f)).desc with
       | Pi (x,t,u) ->
          Enum.flatten
            (Enum.may_map
               (fun (e,t) ->
-                let f = App (f,e) in
+                let f = mk (App (f,e)) in
                 (* Printf.printf "try: %s\n" (to_string f); *)
                 try
                   ignore (infer_type env f);

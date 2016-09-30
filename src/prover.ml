@@ -43,7 +43,7 @@ let exec envs s =
       while !loop do
         print_string "=^o^= ";
         let s = read_line () in
-        let ss = Subst.match_app (fst envs) !ps (Var (VIdent s)) in
+        let ss = Subst.match_app (fst envs) !ps (mk (Var (VIdent s))) in
         print_endline ("len: "^string_of_int (List.length ss))
       done;
       envs

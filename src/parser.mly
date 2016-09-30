@@ -1,9 +1,19 @@
 %{
     open Lang
 
-    let rec abs args e =
+    let defpos () = Parsing.symbol_start_pos (), Parsing.symbol_end_pos ()
+
+    let mk ?pos e =
+      let pos =
+        match pos with
+        | None -> defpos ()
+        | Some pos -> pos
+      in
+      mk ~pos e
+
+    let rec abs ?pos args e =
       match args with
-      | (x,t)::args -> Abs(x, t, abs args e)
+      | (x,t)::args -> mk ?pos (Abs(x, t, abs args e))
       | [] -> e
 %}
 
@@ -46,15 +56,15 @@ ps:
 
 simple_expr:
     | LPAR expr RPAR { $2 }
-    | var { Var $1 }
-    | TYPE { Type }
-    | OBJ { Obj }
-    | US { fresh_evar () }
+    | var { mk (Var $1) }
+    | TYPE { mk Type }
+    | OBJ { mk Obj }
+    | US { fresh_evar ~pos:(defpos ()) () }
 
 app_expr:
-    | app_expr simple_expr { App ($1,$2) }
+    | app_expr simple_expr { mk (App ($1,$2)) }
     | simple_expr { $1 }
 
 expr:
     | app_expr { $1 }
-    | expr ARR expr { Arr (fresh_evar (),$1,$3) }
+    | expr ARR expr { mk (Arr (fresh_evar (),$1,$3)) }
