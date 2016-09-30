@@ -513,6 +513,7 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
      let s = (x,mk (Var x'))::s in
      env,s
   | Coh (x,ps,t) ->
+     let env0 = env in
      (* Apply s. *)
      let ps, t =
        let s = ref s in
@@ -577,7 +578,7 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
        end;
      let t = List.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t in
      let x' = fresh_var x in
-     let env = Env.add env x' t in
+     let env = Env.add env0 x' t in
      let s = (x,mk (Var x'))::s in
      info "%s : %s" (string_of_var x') (to_string t);
      env,s
@@ -614,6 +615,8 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
        groupoid := bool ()
      else if o = "unsafe-evars" then
        unsafe_evars := bool ()
+     else if o = "exit" then
+       exit 0
      else
        error "unknown option %s" o;
      env,s
