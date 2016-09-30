@@ -5,6 +5,7 @@ coh comp
     :
     (x -> z)
 let comp f g = comp _ _ f _ g
+let comp1 = comp
 
 coh assoc
     (x : *)
@@ -19,33 +20,35 @@ coh id (x : *) : (x -> x)
 set unsafe-evars = true
 let id = id _
 set unsafe-evars = false
+let id1 = id
 
-coh unitl
+coh unit1l
     (x : *)
     (y : *) (f : x -> y)
     :
     comp id f -> f
-let unitl f = unitl _ _ f
-let unit1l = unitl
+let unit1l f = unit1l _ _ f
 
-coh unitr
+coh unit1l'
+    (x : *)
+    (y : *) (f : x -> y)
+    :
+    f -> comp id f
+let unit1l' f = unit1l' _ _ f
+
+coh unit1r
     (x : *)
     (y : *) (f : x -> y)
     :
     comp f id -> f
-let unitr f = unitr _ _ f
-let unit1r = unitr
+let unit1r f = unit1r _ _ f
 
-coh unitr'
+coh unit1r'
     (x : *)
     (y : *) (f : x -> y)
     :
     f -> comp f id
-let unitr' f = unitr' _ _ f
-let unit1r' f = unitr'
-
-let id1 = id
-let comp1 = comp
+let unit1r' f = unit1r' _ _ f
 
 coh id2
     (x : *)
@@ -87,30 +90,32 @@ coh unit12l
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1r' f) (comp2 (comp12 id a) (unit1r g)) -> a
+    comp2 (unit1l' f) (comp2 (comp12 id a) (unit1l g)) -> a
+let unit12l a = unit12l _ _ _ _ a
 
-# coh hcomp
-    # (x : *)
-    # (y : *) (f : x -> y)
-    # (f' : x -> y) (a : f -> f')
-    # (z : *) (g : y -> z)
-    # (g' : y -> z) (b : g -> g')
-    # :
-    # comp f g -> comp f' g'
-# let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
-let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
+coh unit12l'
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    a -> comp2 (unit1l' f) (comp2 (comp12 id a) (unit1l g))
+let unit12l' a = unit12l' _ _ _ _ a
 
-# coh ichg
-    # (x : *)
-    # (y : *) (f : x -> y)
-    # (g : x -> y) (a : f -> g)
-    # (h : x -> y) (b : g -> h)
-    # (z : *) (l : y -> z)
-    # (m : y -> z) (c : l -> m)
-    # (n : y -> z) (d : m -> n)
-    # :
-    # hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
-# let ichg (a : _ -> _) (b : _ -> _) (c : _ -> _) (d : _ -> _) = ichg _ _ _ _ a _ b _ _ _ c _ d
+coh unit21r
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    comp2 (unit1r' f) (comp2 (comp21 a id) (unit1r g)) -> a
+let unit21 r a = unit21r _ _ _ _ a
+
+coh unit21r'
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    a -> comp2 (unit1r' f) (comp2 (comp21 a id) (unit1r g))
+let unit21r' a = unit21r' _ _ _ _ a
 
 coh ichg2
     (x : *)
@@ -121,8 +126,43 @@ coh ichg2
     :
     comp2 (comp21 a g) (comp12 f' b) -> comp2 (comp12 f b) (comp21 a g')
 
-let eckmann-hilton (a : id -> id) (b : id -> id) =
-    comp2 (comp21 a id) (comp12 id b)
+coh comp3
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (b : f -> g) (F : a -> b)
+    (c : f -> g) (G : b -> c)
+    :
+    a -> c
+let comp3 F G = comp3 _ _ _ _ _ _ F _ G
+
+coh comp32
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (b : f -> g) (F : a -> b)
+    (h : x -> y) (c : g -> h)
+    :
+    comp2 a c -> comp2 b c
+let comp32 F a = comp32 _ _ _ _ _ _ F _ a
+
+coh comp23
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (h : x -> y) (b : g -> h)
+    (c : g -> h) (F : b -> c)
+    :
+    comp2 a b -> comp2 a c
+let comp23 a F = comp23 _ _ _ _ a _ _ _ F
+
+let comp3_1 F G = comp3 (comp32 F _) (comp23 _ G)
+
+let eh1 (a : id -> id) (b : id -> id) =
+    comp3_1 (unit21r' a) (unit12l' b)
+
+# let eckmann-hilton (a : id -> id) (b : id -> id) =
+    # comp2 (comp21 a id) (comp12 id b)
 
 
 

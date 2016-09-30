@@ -148,13 +148,13 @@ let rec subst (s:subst) e =
     | Abs (x,t,e) ->
        let t = subst s t in
        let x' = fresh_var x in
-       let s = (x,mk (Var x'))::s in
+       let s = (x,mk ~pos:e.pos (Var x'))::s in
        let e = subst s e in
        Abs (x',t,e)
     | Pi (x,t,u) ->
        let t = subst s t in
        let x' = fresh_var x in
-       let s = (x,mk (Var x'))::s in
+       let s = (x,mk ~pos:e.pos (Var x'))::s in
        let u = subst s u in
        Pi (x',t,u)
   in
@@ -180,7 +180,7 @@ let rec free_evar e =
 
 (** Replace EVars by fresh ones. *)
 (* TODO: use levels? *)
-let generalize_evar e =
+let instantiate e =
   let g = ref [] in
   let rec aux e =
     let desc =
@@ -259,7 +259,7 @@ let rec normalize env e =
        begin
          try
            match Env.value env x with
-           | Some e -> (normalize env (generalize_evar e)).desc
+           | Some e -> (normalize env (instantiate e)).desc
            | None -> Var x
          with
          | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
@@ -290,7 +290,7 @@ let rec normalize env e =
        let g = normalize env g in
        Arr (t,f,g)
   in
-  mk desc
+  mk ~pos:e.pos desc
 
 (** Pasting schemes. *)
 module PS = struct
@@ -394,7 +394,7 @@ let rec infer_type env e =
      begin
        try
          let t = Env.typ env x in
-         if Env.value env x <> None then generalize_evar t else t
+         if Env.value env x <> None then instantiate t else t
        with
        | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
      end
@@ -521,7 +521,7 @@ let exec_cmd (env,s) cmd =
        let t = subst !s t in
        ps, t
      in
-     (* Normalize types. *)
+     (* Normalize types in order to reveal hidden variables. *)
      let env =
        List.fold_left
          (fun env (x,t) ->
@@ -565,7 +565,7 @@ let exec_cmd (env,s) cmd =
              then
                let bad = List.union (List.diff fvs fvf) (List.diff fvt fvg) in
                let bad = String.concat ", " (List.map string_of_var bad) in
-               error "not algebraic: %s" bad;
+               error ~pos:t.pos "not algebraic: %s is not used" bad;
            end;
        end;
      let t = List.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t in

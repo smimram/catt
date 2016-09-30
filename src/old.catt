@@ -1,0 +1,22 @@
+coh hcomp
+    (x : *)
+    (y : *) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : *) (g : y -> z)
+    (g' : y -> z) (b : g -> g')
+    :
+    comp f g -> comp f' g'
+let hcomp (a : _ -> _) (b : _ -> _) = hcomp _ _ _ _ a _ _ _ b
+let hcomp a b = comp2 (comp21 a _) (comp12 _ b)
+
+coh ichg
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    (h : x -> y) (b : g -> h)
+    (z : *) (l : y -> z)
+    (m : y -> z) (c : l -> m)
+    (n : y -> z) (d : m -> n)
+    :
+    hcomp (vcomp a b) (vcomp c d) -> vcomp (hcomp a c) (hcomp b d)
+let ichg (a : _ -> _) (b : _ -> _) (c : _ -> _) (d : _ -> _) = ichg _ _ _ _ a _ b _ _ _ c _ d

@@ -1,15 +1,16 @@
 %{
+    open Stdlib
     open Lang
 
     let defpos () = Parsing.symbol_start_pos (), Parsing.symbol_end_pos ()
 
     let mk ?pos e =
-      let pos =
-        match pos with
-        | None -> defpos ()
-        | Some pos -> pos
-      in
+      let pos = Option.default (defpos ()) pos in
       mk ~pos e
+
+    let fresh_evar ?pos () =
+      let pos = Option.default (defpos ()) pos in
+      fresh_evar ~pos ()
 
     let rec abs ?pos args e =
       match args with
