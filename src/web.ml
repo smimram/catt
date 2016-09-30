@@ -2,7 +2,7 @@
 
 module Html = Dom_html
 
-let envs = ref (Lang.Env.empty,[])
+let envs = ref Lang.Envs.empty
 
 let doc = Html.document
 let button txt action =

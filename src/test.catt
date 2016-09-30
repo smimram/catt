@@ -18,37 +18,41 @@ let assoc f g h = assoc _ _ f _ g _ h
 
 coh id (x : *) : (x -> x)
 set unsafe-evars = true
-let id = id _
+let id1 = id _
 set unsafe-evars = false
-let id1 = id
 
 coh unit1l
     (x : *)
     (y : *) (f : x -> y)
     :
-    comp id f -> f
+    comp id1 f -> f
 let unit1l f = unit1l _ _ f
 
 coh unit1l'
     (x : *)
     (y : *) (f : x -> y)
     :
-    f -> comp id f
+    f -> comp id1 f
 let unit1l' f = unit1l' _ _ f
 
 coh unit1r
     (x : *)
     (y : *) (f : x -> y)
     :
-    comp f id -> f
+    comp f id1 -> f
 let unit1r f = unit1r _ _ f
 
 coh unit1r'
     (x : *)
     (y : *) (f : x -> y)
     :
-    f -> comp f id
+    f -> comp f id1
 let unit1r' f = unit1r' _ _ f
+
+coh unit1lr
+    (x : *)
+    :
+    unit1l (id x) -> unit1r (id x)
 
 coh id2
     (x : *)
@@ -90,7 +94,7 @@ coh unit12l
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1l' f) (comp2 (comp12 id a) (unit1l g)) -> a
+    comp2 (unit1l' f) (comp2 (comp12 id1 a) (unit1l g)) -> a
 let unit12l a = unit12l _ _ _ _ a
 
 coh unit12l'
@@ -98,7 +102,7 @@ coh unit12l'
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    a -> comp2 (unit1l' f) (comp2 (comp12 id a) (unit1l g))
+    a -> comp2 (unit1l' f) (comp2 (comp12 id1 a) (unit1l g))
 let unit12l' a = unit12l' _ _ _ _ a
 
 coh unit21r
@@ -106,7 +110,7 @@ coh unit21r
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1r' f) (comp2 (comp21 a id) (unit1r g)) -> a
+    comp2 (unit1r' f) (comp2 (comp21 a id1) (unit1r g)) -> a
 let unit21 r a = unit21r _ _ _ _ a
 
 coh unit21r'
@@ -114,10 +118,10 @@ coh unit21r'
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    a -> comp2 (unit1r' f) (comp2 (comp21 a id) (unit1r g))
+    a -> comp2 (unit1r' f) (comp2 (comp21 a id1) (unit1r g))
 let unit21r' a = unit21r' _ _ _ _ a
 
-coh ichg2
+coh ich2
     (x : *)
     (y : *) (f : x -> y)
     (f' : x -> y) (a : f -> f')
@@ -125,6 +129,19 @@ coh ichg2
     (g' : y -> z) (b : g -> g')
     :
     comp2 (comp21 a g) (comp12 f' b) -> comp2 (comp12 f b) (comp21 a g')
+let ich2 a b = ich2 _ _ _ _ a _ _ _ b
+
+# MacLane's coherence theorem
+coh maclane
+    (x : *)
+    (y : *) (f : x -> y)
+    (z : *) (g : y -> z)
+    (v : *) (h : z -> v)
+    (w : *) (i : v -> w)
+    :
+    comp2 (assoc (comp1 f g) h i) (assoc f g (comp1 h i))
+    ->
+    comp2 (comp21 (assoc f g h) i) (comp2 (assoc f (comp1 g h) i) (comp12 f (assoc g h i)))
 
 coh comp3
     (x : *)
@@ -158,11 +175,17 @@ let comp23 a F = comp23 _ _ _ _ a _ _ _ F
 
 let comp3_1 F G = comp3 (comp32 F _) (comp23 _ G)
 
-let eh1 (a : id -> id) (b : id -> id) =
+let eh1 (a : id1 -> id1) (b : id1 -> id1) =
     comp3_1 (unit21r' a) (unit12l' b)
 
-# let eckmann-hilton (a : id -> id) (b : id -> id) =
-    # comp2 (comp21 a id) (comp12 id b)
+# let eh2 (a : id1 -> id1) (b : id1 -> id1) =
+    # comp23 () (ich2 a b)
+
+# let eh (a : id1 -> id1) (b : id1 -> id1) =
+    # comp3 (eh1 a b) (eh2 a b)
+
+# let eckmann-hilton (a : id1 -> id1) (b : id1 -> id1) =
+    # comp2 (comp21 a id1) (comp12 id1 b)
 
 
 

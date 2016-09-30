@@ -214,7 +214,7 @@ let rec free_vars e =
   (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
   match (unevar e).desc with
   | Var x -> [x]
-  | EVar (x,s) -> assert false
+  | EVar (x,s) -> error ~pos:e.pos "don't know how to compute free variables in meta-variables"
   | Type | HomType | Obj -> []
   | Arr (t,f,g) -> (free_vars t)@(free_vars f)@(free_vars g)
   | App (f,x) -> (free_vars f)@(free_vars x)
@@ -484,8 +484,15 @@ let string_of_cmd = function
 (** A program. *)
 type prog = cmd list
 
+(** Running environment. *)
+module Envs = struct
+  type t = Env.t * subst
+
+  let empty : t = Env.empty, []
+end
+
 (** Execute a command. *)
-let exec_cmd (env,s) cmd =
+let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
   command "%s" (string_of_cmd cmd);
   match cmd with
   | Decl (x,e) ->

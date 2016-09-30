@@ -21,7 +21,7 @@ let () =
     ]
     (fun s -> file_in := s::!file_in)
     usage;
-  let envs = Lang.Env.empty, [] in
+  let envs = Lang.Envs.empty in
   let envs =
     match !file_in with
     | [f] -> Lang.exec envs (parse_file f)
