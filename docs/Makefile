@@ -8,3 +8,4 @@ update:
 
 ci: update
 	git ci . -m "Update website."
+	git push
