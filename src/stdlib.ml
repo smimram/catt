@@ -80,22 +80,7 @@ module Option = struct
     | Some x -> Some (f x)
     | None -> None
 
-  let iter f = function
-    | Some x -> f x
-    | None -> ()
-
   let default x = function
     | Some x -> x
     | None -> x
-
-  let fold x f = function
-    | Some x -> f x
-    | None -> x
-end
-
-module String = struct
-  include String
-
-  let concat_map s f l =
-    concat s (List.map f l)
 end

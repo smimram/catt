@@ -16,8 +16,6 @@ rule token = parse
   | "HomType" { HOMTYPE }
   | "(" { LPAR }
   | ")" { RPAR }
-  | "{" { LACC }
-  | "}" { RACC }
   | ":" { COL }
   | "->" { ARR }
   | "=>" { ARROW }

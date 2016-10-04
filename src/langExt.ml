@@ -10,7 +10,7 @@ module Subst = struct
 
   (** Create from a pasting scheme. *)
   let of_ps (ps:PS.t) : t =
-    List.map (fun (x,t,_) -> mk (Var x), t) ps
+    List.map (fun (x,t) -> mk (Var x), t) ps
 
   let dummy = Var (VIdent "?")
 
@@ -18,7 +18,7 @@ module Subst = struct
   let match_app env ps f =
     let rec aux f =
       match (unevar (infer_type env f)).desc with
-      | Pi ((x,t,_),u) ->
+      | Pi (x,t,u) ->
          Enum.flatten
            (Enum.may_map
               (fun (e,t) ->
