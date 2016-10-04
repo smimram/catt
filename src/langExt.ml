@@ -10,7 +10,7 @@ module Subst = struct
 
   (** Create from a pasting scheme. *)
   let of_ps (ps:PS.t) : t =
-    List.map (fun (x,t) -> mk (Var x), t) ps
+    List.map (fun (x,t,_) -> mk (Var x), t) ps
 
   let dummy = Var (VIdent "?")
 

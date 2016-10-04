@@ -38,7 +38,7 @@ prog:
 cmd:
     | LET var args EQ expr { Decl ($2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
-    | COH var args COL expr { Coh ($2,$3,$5) }
+    | COH var args COL expr { DefCoh ($2,$3,$5) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
@@ -54,7 +54,7 @@ args:
     | { [] }
 
 ps:
-    | args { List.map (fun (x,t,d) -> x,t) $1 }
+    | args { $1 }
 
 simple_expr:
     | LPAR expr RPAR { $2 }
