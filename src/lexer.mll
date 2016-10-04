@@ -13,6 +13,7 @@ rule token = parse
   | "eval" { EVAL }
   | "env" { ENV }
   | "Type" { TYPE }
+  | "HomType" { HOMTYPE }
   | "(" { LPAR }
   | ")" { RPAR }
   | ":" { COL }

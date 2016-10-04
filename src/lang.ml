@@ -533,13 +533,13 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
      let env =
        List.fold_left
          (fun env (x,t) ->
-           let t = normalize env t in
-           check_type env t (mk Type);
+           (* let t = normalize env t in *)
+           check_type env t (mk HomType);
            Env.add env x t
          ) env ps
      in
      let t = normalize env t in
-     check_type env t (mk Type);
+     check_type env t (mk HomType);
      (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
      (* Printf.printf "type: %s\n%!" (to_string t); *)
      (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)

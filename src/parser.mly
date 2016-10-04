@@ -18,7 +18,7 @@
       | [] -> e
 %}
 
-%token COH LET SET ARR ARROW OBJ TYPE
+%token COH LET SET ARR ARROW OBJ TYPE HOMTYPE
 %token LPAR RPAR COL EQ US
 %token <string> IDENT
 %token CHECK EVAL HYP ENV
@@ -59,6 +59,7 @@ simple_expr:
     | LPAR expr RPAR { $2 }
     | var { mk (Var $1) }
     | TYPE { mk Type }
+    | HOMTYPE { mk HomType }
     | OBJ { mk Obj }
     | US { fresh_evar ~pos:(defpos ()) () }
 
