@@ -15,6 +15,8 @@ rule token = parse
   | "Type" { TYPE }
   | "(" { LPAR }
   | ")" { RPAR }
+  | "{" { LACC }
+  | "}" { RACC }
   | ":" { COL }
   | "->" { ARR }
   | "=>" { ARROW }

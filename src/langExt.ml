@@ -18,7 +18,7 @@ module Subst = struct
   let match_app env ps f =
     let rec aux f =
       match (unevar (infer_type env f)).desc with
-      | Pi (x,t,u) ->
+      | Pi ((x,t,_),u) ->
          Enum.flatten
            (Enum.may_map
               (fun (e,t) ->

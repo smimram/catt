@@ -14,12 +14,12 @@
 
     let rec abs ?pos args e =
       match args with
-      | (x,t)::args -> mk ?pos (Abs(x, t, abs args e))
+      | (x,t,d)::args -> mk ?pos (Abs((x,t,d),abs args e))
       | [] -> e
 %}
 
 %token COH LET SET ARR ARROW OBJ TYPE
-%token LPAR RPAR COL EQ US
+%token LPAR RPAR LACC RACC COL EQ US
 %token <string> IDENT
 %token CHECK EVAL HYP ENV
 %token EOF
@@ -48,19 +48,20 @@ var:
     | IDENT { VIdent $1 }
 
 args:
-    | LPAR var COL expr RPAR args { ($2,$4)::$6 }
-    | var args { ($1,fresh_evar ())::$2 }
+    | LPAR var COL expr RPAR args { ($2,$4,None)::$6 }
+    | LACC var COL expr RACC args { ($2,$4,Some (fresh_evar ()))::$6 }
+    | var args { ($1,fresh_evar (),None)::$2 }
     | { [] }
 
 ps:
-    | args { $1 }
+    | args { List.map (fun (x,t,d) -> x,t) $1 }
 
 simple_expr:
     | LPAR expr RPAR { $2 }
     | var { mk (Var $1) }
     | TYPE { mk Type }
     | OBJ { mk Obj }
-    | US { fresh_evar ~pos:(defpos ()) () }
+    | US { fresh_evar () }
 
 app_expr:
     | app_expr simple_expr { mk (App ($1,$2)) }
