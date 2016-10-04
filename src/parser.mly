@@ -14,12 +14,12 @@
 
     let rec abs ?pos args e =
       match args with
-      | (x,t)::args -> mk ?pos (Abs(x, t, abs args e))
+      | (x,t,d)::args -> mk ?pos (Abs((x,t,d),abs args e))
       | [] -> e
 %}
 
 %token COH LET SET ARR ARROW OBJ TYPE HOMTYPE
-%token LPAR RPAR COL EQ US
+%token LPAR RPAR LACC RACC COL EQ US
 %token <string> IDENT
 %token CHECK EVAL HYP ENV
 %token EOF
@@ -38,7 +38,7 @@ prog:
 cmd:
     | LET var args EQ expr { Decl ($2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
-    | COH var args COL expr { Coh ($2,$3,$5) }
+    | COH var args COL expr { DefCoh ($2,$3,$5) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
@@ -48,8 +48,9 @@ var:
     | IDENT { VIdent $1 }
 
 args:
-    | LPAR var COL expr RPAR args { ($2,$4)::$6 }
-    | var args { ($1,fresh_evar ())::$2 }
+    | LPAR var COL expr RPAR args { ($2,$4,None)::$6 }
+    | LACC var COL expr RACC args { ($2,$4,Some (fresh_evar ()))::$6 }
+    | var args { ($1,fresh_evar (),None)::$2 }
     | { [] }
 
 ps:
@@ -61,7 +62,7 @@ simple_expr:
     | TYPE { mk Type }
     | HOMTYPE { mk HomType }
     | OBJ { mk Obj }
-    | US { fresh_evar ~pos:(defpos ()) () }
+    | US { fresh_evar () }
 
 app_expr:
     | app_expr simple_expr { mk (App ($1,$2)) }
