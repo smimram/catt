@@ -15,43 +15,40 @@ coh assoc1
     comp1 (comp1 f g) h -> comp1 f (comp1 g h)
 let assoc1 f g h = assoc1 _ _ f _ g _ h
 
-coh id (x : *) : (x -> x)
-set unsafe-evars = true
-let id1 = id _
-set unsafe-evars = false
+coh id1 (x : *) : (x -> x)
 
 coh unit1l
     (x : *)
     (y : *) (f : x -> y)
     :
-    comp1 id1 f -> f
+    comp1 (id1 x) f -> f
 let unit1l f = unit1l _ _ f
 
 coh unit1l'
     (x : *)
     (y : *) (f : x -> y)
     :
-    f -> comp1 id1 f
+    f -> comp1 (id1 x) f
 let unit1l' f = unit1l' _ _ f
 
 coh unit1r
     (x : *)
     (y : *) (f : x -> y)
     :
-    comp1 f id1 -> f
+    comp1 f (id1 y) -> f
 let unit1r f = unit1r _ _ f
 
 coh unit1r'
     (x : *)
     (y : *) (f : x -> y)
     :
-    f -> comp1 f id1
+    f -> comp1 f (id1 y)
 let unit1r' f = unit1r' _ _ f
 
 coh unit1lr
     (x : *)
     :
-    unit1l (id x) -> unit1r (id x)
+    unit1l (id1 x) -> unit1r (id1 x)
 
 coh id2
     (x : *)
@@ -92,7 +89,7 @@ coh unit12l
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1l' f) (comp2 (comp12 id1 a) (unit1l g)) -> a
+    comp2 (unit1l' f) (comp2 (comp12 (id1 x) a) (unit1l g)) -> a
 let unit12l a = unit12l _ _ _ _ a
 
 coh unit12l'
@@ -100,7 +97,7 @@ coh unit12l'
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    a -> comp2 (unit1l' f) (comp2 (comp12 id1 a) (unit1l g))
+    a -> comp2 (unit1l' f) (comp2 (comp12 (id1 x) a) (unit1l g))
 let unit12l' a = unit12l' _ _ _ _ a
 
 coh unit21r
@@ -108,7 +105,7 @@ coh unit21r
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1r' f) (comp2 (comp21 a id1) (unit1r g)) -> a
+    comp2 (unit1r' f) (comp2 (comp21 a (id1 y)) (unit1r g)) -> a
 let unit21 r a = unit21r _ _ _ _ a
 
 coh unit21r'
@@ -116,7 +113,7 @@ coh unit21r'
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    a -> comp2 (unit1r' f) (comp2 (comp21 a id1) (unit1r g))
+    a -> comp2 (unit1r' f) (comp2 (comp21 a (id1 y)) (unit1r g))
 let unit21r' a = unit21r' _ _ _ _ a
 
 coh ich2
@@ -173,7 +170,7 @@ let comp23 a F = comp23 _ _ _ _ a _ _ _ F
 
 let comp3_1 F G = comp3 (comp32 F _) (comp23 _ G)
 
-let eh1 (a : id1 -> id1) (b : id1 -> id1) =
+let eh1 (x : * )(a : id1 x -> id1 x) (b : id1 x -> id1 x) =
     comp3_1 (unit21r' a) (unit12l' b)
 
 # let eh2 (a : id1 -> id1) (b : id1 -> id1) =
