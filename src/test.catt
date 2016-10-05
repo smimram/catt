@@ -15,6 +15,9 @@ let assoc (X : Hom) = coh "assoc"
     (comp (comp f g) h -> comp f (comp g h))
 let assoc f g h = assoc _ _ _ f _ g _ h
 
+# let id = coh "id" (x : _) : (x -> x)
+# let unitl = coh "unitl" (x : _) (y : _) (f : x -> y) : (comp (id x) f -> f)
+
 let id (X : Hom) = coh "id" (x : X) : (x -> x)
 let id (x : _) = id _ x
 
@@ -101,16 +104,6 @@ coh maclane
     ->
     comp (comp21 (assoc f g h) i) (comp (assoc f (comp g h) i) (comp12 f (assoc g h i)))
 
-coh comp3
-    (x : *)
-    (y : *) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    (b : f -> g) (F : a -> b)
-    (c : f -> g) (G : b -> c)
-    :
-    a -> c
-let comp3 F G = comp3 _ _ _ _ _ _ F _ G
-
 coh comp32
     (x : *)
     (y : *) (f : x -> y)
@@ -131,9 +124,9 @@ coh comp23
     comp a b -> comp a c
 let comp23 a F = comp23 _ _ _ _ a _ _ _ F
 
-let comp3_1 F G = comp3 (comp32 F _) (comp23 _ G)
+let comp3_1 F G = comp (comp32 F _) (comp23 _ G)
 
-let eh1 (x : * )(a : id x -> id x) (b : id x -> id x) =
+let eh1 (x : *) (a : id x -> id x) (b : id x -> id x) =
     comp3_1 (unit21r' a) (unit12l' b)
 
 # let eh2 (a : id -> id) (b : id -> id) =

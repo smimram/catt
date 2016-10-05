@@ -64,7 +64,7 @@ let rec to_string ?(pa=false) e =
   | Obj -> "*"
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
   | Coh (c,ps,t) ->
-     if c = "" || true then
+     if c = "" then
        Printf.sprintf "coh (%s => %s)" (string_of_ps ps) (to_string false t)
      else
        c
@@ -138,7 +138,7 @@ module PS = struct
            match tf.desc with
            | Arr (_, {desc = Var fx}, {desc = Var fy}) ->
               (* Printf.printf "check: %s:?->%s\n%!" (string_of_var f) (string_of_var y); *)
-              if (y <> fy) then error "not a pasting scheme (following types do not match)";
+              if (y <> fy) then error ~pos:tf.pos "not a pasting scheme (following types do not match)";
               let x,tx = marker ps in
               if x = fx then
                 let fvps = free_vars ps in
@@ -148,7 +148,7 @@ module PS = struct
                 aux ps l
               else
                 aux (PDrop ps) ((y,ty)::(f,tf)::l)
-           | _ -> error "not a pasting scheme (types do not match)"
+           | _ -> error ~pos:tf.pos "not a pasting scheme (types do not match)"
          end
       | [_] -> error "not a pasting scheme (invalid parity)"
       | [] -> ps
