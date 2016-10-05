@@ -34,7 +34,9 @@ type expr =
    | Coh of string * ps * expr (** name, source, target *)
  (** A pasting scheme. *)
  and ps =
-   (var * expr) list
+   | PNil of (var * expr)
+   | PCons of ps * (var * expr) * (var * expr)
+   | PDrop of ps
  (** A substitution. *)
  and subst = (var * expr) list
  and evar =
@@ -63,13 +65,7 @@ let rec to_string ?(pa=false) e =
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
   | Coh (c,ps,t) ->
      if c = "" || true then
-       let ps =
-         String.concat_map
-           " "
-           (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string false t))
-           ps
-       in
-       Printf.sprintf "coh (%s => %s)" ps (to_string false t)
+       Printf.sprintf "coh (%s => %s)" (string_of_ps ps) (to_string false t)
      else
        c
   | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
@@ -83,9 +79,165 @@ and string_of_evar ?(pa=false) = function
   | ESome x -> to_string ~pa x
      (* "[" ^ to_string false x ^ "]" *)
 
+and string_of_ps = function
+  | PNil (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string t)
+  | PCons (ps,(x,t),(y,u)) -> Printf.sprintf "%s (%s : %s) (%s : %s)" (string_of_ps ps) (string_of_var x) (to_string t) (string_of_var y) (to_string u)
+  | PDrop ps -> string_of_ps ps ^ " ! "
+
 let string_of_evarref x = string_of_evar !x
 
 let string_of_expr = to_string
+
+(** Pasting schemes. *)
+module PS = struct
+  type t = ps
+
+  let to_string = string_of_ps
+
+  let rec marker ps =
+    (* Printf.printf "marker: %s\n%!" (to_string ps); *)
+    match ps with
+    | PNil (x,t) -> x,t
+    | PCons (ps,_,f) -> f
+    | PDrop ps ->
+       let f,tf = marker ps in
+       match tf.desc with
+       | Arr (_,x,{desc = Var y}) ->
+          let t =
+            let rec aux = function
+              | PNil (x,t) -> assert (x = y); t
+              | PCons (ps,(y',ty),(f,tf)) ->
+                 if y' = y then ty
+                 else if f = y then tf
+                 else aux ps
+              | PDrop ps -> aux ps
+            in
+            aux ps
+          in
+          y,t
+       | _ -> assert false
+
+  (** Free variables. *)
+  let rec free_vars = function
+    | PNil (x,t) -> [x]
+    | PCons (ps,(y,_),(f,_)) -> f::y::(free_vars ps)
+    | PDrop ps -> free_vars ps
+
+  let make l : t =
+    (* Printf.printf "make: %s\n%!" (String.concat_map " " (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (string_of_expr t)) l); *)
+    let x0,t0,l =
+      match l with
+      | (x,t)::l ->
+         if not !parametric_schemes then assert (t.desc = Obj);
+         x,t,l
+      | [] -> error "pasting scheme cannot be empty"
+    in
+    let rec aux ps = function
+      | (y,ty)::(f,tf)::l ->
+         begin
+           match tf.desc with
+           | Arr (_, {desc = Var fx}, {desc = Var fy}) ->
+              (* Printf.printf "check: %s:?->%s\n%!" (string_of_var f) (string_of_var y); *)
+              if (y <> fy) then error "not a pasting scheme (following types do not match)";
+              let x,tx = marker ps in
+              if x = fx then
+                let fvps = free_vars ps in
+                assert (not (List.mem f fvps));
+                assert (not (List.mem y fvps));
+                let ps = PCons (ps,(y,ty),(f,tf)) in
+                aux ps l
+              else
+                aux (PDrop ps) ((y,ty)::(f,tf)::l)
+           | _ -> error "not a pasting scheme (types do not match)"
+         end
+      | [_] -> error "not a pasting scheme (invalid parity)"
+      | [] -> ps
+    in
+    aux (PNil(x0,t0)) l
+
+  (** Height of a pasting scheme. *)
+  let rec height = function
+    | PNil _ -> 0
+    | PCons (ps,_,_) -> height ps + 1
+    | PDrop ps -> height ps - 1
+
+  (** Dimension of a pasting scheme. *)
+  let rec dim = function
+    | PNil _ -> 0
+    | PCons (ps,_,_) -> max (dim ps) (height ps + 1)
+    | PDrop ps -> dim ps
+
+  (** Source of a pasting scheme. *)
+  let source i ps =
+    assert (i >= 0);
+    let rec aux = function
+      | PNil _ as ps -> ps
+      | PCons (ps,_,_) when height ps >= i -> aux ps
+      | PCons (ps,y,f) -> PCons (aux ps,y,f)
+      | PDrop ps when height ps > i -> aux ps
+      | PDrop ps -> PDrop (aux ps)
+    in
+    aux ps
+
+  (** Target of a pasting scheme. *)
+  let target i ps =
+    assert (i >= 0);
+    let replace g = function
+      | PNil x -> PNil g
+      | PCons (ps,y,f) -> PCons (ps,y,g)
+      | _ -> assert false
+    in
+    let rec aux = function
+      | PNil _ as ps -> ps
+      | PCons (ps,_,_) when height ps > i -> aux ps
+      | PCons (ps,y,f) when height ps = i -> replace y (aux ps)
+      | PCons (ps,y,f) -> PCons (aux ps,y,f)
+      | PDrop ps when height ps > i -> aux ps
+      | PDrop ps -> PDrop (aux ps)
+    in
+    aux ps
+
+  let rec exists f = function
+    | PNil x -> f x
+    | PCons (ps,x,y) -> exists f ps || f x || f y
+    | PDrop ps -> exists f ps
+
+  let rec map f = function
+    | PNil x -> PNil (f x)
+    | PCons (ps,x,y) ->
+       let ps = map f ps in
+       let x = f x in
+       let y = f y in
+       PCons (ps,x,y)
+    | PDrop ps -> PDrop (map f ps)
+
+  let rec fold_left f s = function
+    | PNil x -> f s x
+    | PCons (ps,x,y) ->
+       let s = fold_left f s ps in
+       let s = f s x in
+       f s y
+    | PDrop ps -> fold_left f s ps
+
+  let rec fold_left2 f s ps1 ps2 =
+    match ps1, ps2 with
+    | PNil x1, PNil x2 -> f s x1 x2
+    | PCons (ps1,y1,f1), PCons(ps2,y2,f2) ->
+       let s = fold_left2 f s ps1 ps2 in
+       let s = f s y1 y2 in
+       f s f1 f2
+    | PDrop ps1, PDrop ps2 -> fold_left2 f s ps1 ps2
+    | (PNil _  | PCons _ | PDrop _), _ -> assert false
+
+  let rec fold_right f ps s =
+    match ps with
+    | PNil x -> f x s
+    | PCons (ps,x,y) ->
+       let s = f y s in
+       let s = f x s in
+       fold_right f ps s
+    | PDrop ps -> fold_right f ps s
+end
 
 (** Generate a fresh variable name. *)
 let fresh_var =
@@ -141,7 +293,7 @@ let occurs_evar v e =
     | HomType -> false
     | Obj -> false
     | Arr (t,f,g) -> aux t || aux f || aux g
-    | Coh (_,ps,e) -> List.exists (fun (x,t) -> aux t) ps || aux e
+    | Coh (_,ps,e) -> PS.exists (fun (x,t) -> aux t) ps || aux e
   in
   aux e
 
@@ -165,7 +317,7 @@ let rec subst (s:subst) e =
     | Coh (c,ps,t) ->
        let s = ref s in
        let ps =
-         List.map
+         PS.map
            (fun (x,t) ->
              let x' = fresh_var x in
              let t = subst !s t in
@@ -208,7 +360,7 @@ let rec free_evar e =
   | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
   | Arr (t, f, g) -> List.unionq (free_evar t) (List.unionq (free_evar f) (free_evar g))
   | Pi (_,t,u) -> List.unionq (free_evar t) (free_evar u)
-  | Coh (_,ps,t) -> List.fold_left (fun l (x,t) -> List.unionq (free_evar t) l) (free_evar t) ps
+  | Coh (_,ps,t) -> PS.fold_left (fun l (x,t) -> List.unionq (free_evar t) l) (free_evar t) ps
 
 (** Replace EVars by fresh ones. *)
 (* TODO: use levels? *)
@@ -236,7 +388,7 @@ let instantiate e =
       | Pi (x,t,u) -> Pi (x, aux t, aux u)
       | HomType | Obj as e -> e
       | Coh (c,ps,t) ->
-         let ps = List.map (fun (x,t) -> x,aux t) ps in
+         let ps = PS.map (fun (x,t) -> x,aux t) ps in
          let t = aux t in
          Coh (c,ps,t)
       | Arr (t,f,g) -> Arr (aux t, aux f, aux g)
@@ -258,7 +410,7 @@ let rec free_vars e =
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
   | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
-  | Coh (c,ps,t) -> List.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
+  | Coh (c,ps,t) -> PS.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
 
 (** Typing environment. *)
 module Env = struct
@@ -326,7 +478,7 @@ let rec normalize env e =
     | Coh (c,ps,t) ->
        let env = ref env in
        let ps =
-         List.map
+         PS.map
            (fun (x,t) ->
              let t = normalize !env t in
              env := Env.add !env x t;
@@ -342,106 +494,6 @@ let rec normalize env e =
        Arr (t,f,g)
   in
   mk ~pos:e.pos desc
-
-(** Pasting schemes. *)
-module PS = struct
-  type t = ps
-
-  let to_string (ps:t) =
-    String.concat " " (List.map (fun (x,t) -> "(" ^ string_of_var x ^ " : " ^ to_string t ^ ")") ps)
-
-  (** Check that a pasting scheme is well-formed. *)
-  let check (l:t) =
-    (* Printf.printf "check: %s\n%!" (to_string l); *)
-    let x0,l =
-      match l with
-      | (x,t)::l ->
-         if not !parametric_schemes then assert ((unevar t).desc = Obj);
-         x,l
-      | [] -> error "pasting scheme cannot be empty"
-    in
-    let marker = function
-      | (f,_)::_ -> f
-      | _ -> assert false
-    in
-    let drop ps =
-      match ps with
-      | (f, {desc = Arr(_, {desc = Var x}, {desc = Var y})})::_ -> (y, List.assoc x ps)::ps
-      | _::_ -> assert false
-      | [] -> assert false
-    in
-    let rec aux ps = function
-      | (y,ty)::(f,tf)::l ->
-         begin
-           match tf.desc with
-           | Arr (_, {desc = Var fx}, {desc = Var fy}) ->
-              if (y <> fy) then error "not a pasting scheme (following types do not match)";
-              if fx = marker ps then
-                let ps_fv = List.map fst ps in
-                assert (not (List.mem f ps_fv));
-                assert (not (List.mem y ps_fv));
-                let ps = (f,tf)::ps in
-                aux ps l
-              else
-                aux (drop ps) ((y,ty)::(f,tf)::l)
-           | _ -> error "not a pasting scheme (types do not match)"
-         end
-      | [_] -> error "not a pasting scheme (invalid parity)"
-      | [] -> ()
-    in
-    aux [x0,mk Obj] l
-
-  (** Free variables. *)
-  let free_vars (ps:t) = List.map fst ps
-
-  (** Dimensions of generators. *)
-  let dims (ps:t) =
-    (* Printf.printf "dims: %s\n%!" (to_string ps); *)
-    let x,t,ps =
-      match ps with
-      | (x,t)::ps -> x,t,ps
-      | _ -> assert false
-    in
-    let rec aux env = function
-      | (x,t')::ps when t'.desc = t.desc ->
-         let env = (x,0)::env in
-         aux env ps
-      (* | (x,{desc = Var _})::ps *)
-      | (x,{desc = EVar _})::ps ->
-         let env = (x,0)::env in
-         aux env ps
-      | (x,{desc = Arr (_, {desc = Var f}, {desc = Var g})})::ps ->
-         let d = List.assoc f env in
-         let env = (x,d+1)::env in
-         aux env ps
-      | [] -> env
-      | _ -> assert false
-    in
-    if not !parametric_schemes then assert (t.desc = Obj);
-    aux [x,0] ps
-
-  (** Dimension of a pasting scheme. *)
-  let dim ps =
-    List.fold_left (fun m (x,d) -> max m d) (-1) (dims ps)
-
-  (** Source of a pasting scheme. *)
-  let source i ps =
-    assert (i >= 0);
-    let dims = dims ps in
-    let dim x = List.assoc x dims in
-    let targets = List.filter (fun (x,t) -> dim x = i+1) ps in
-    let targets = List.map (fun (x,t) -> match t.desc with Arr (_, {desc = Var f}, {desc = Var g}) -> g | _ -> assert false) targets in
-    List.filter (fun (x,t) -> dim x < i || (dim x = i && not (List.mem x targets))) ps
-
-  (** Target of a pasting scheme. *)
-  let target i ps =
-    assert (i >= 0);
-    let dims = dims ps in
-    let dim x = List.assoc x dims in
-    let sources = List.filter (fun (x,t) -> dim x = i+1) ps in
-    let sources = List.map (fun (x,t) -> match t.desc with Arr (_, {desc = Var f}, {desc = Var g}) -> f | _ -> assert false) sources in
-    List.filter (fun (x,t) -> dim x < i || (dim x = i && not (List.mem x sources))) ps
-end
 
 (** Type inference. *)
 let rec infer_type env e =
@@ -487,7 +539,7 @@ let rec infer_type env e =
      (* Normalize types in order to reveal hidden variables. *)
      let env = ref env in
      let ps =
-       List.map
+       PS.map
          (fun (x,t) ->
            let t = normalize !env t in
            check_type !env t (mk HomType);
@@ -503,7 +555,6 @@ let rec infer_type env e =
      (* Printf.printf "type: %s\n%!" (to_string t); *)
      (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
      (* debug "check pasting scheme %s" (PS.to_string ps); *)
-     PS.check ps;
      if not !groupoid then
        begin
          let f,g =
@@ -525,18 +576,24 @@ let rec infer_type env e =
            begin
              let i = PS.dim ps in
              (* debug "checking decompositions"; *)
-             let fvs = PS.free_vars (PS.source (i-1) ps) in
-             let fvt = PS.free_vars (PS.target (i-1) ps) in
+             let pss = PS.source (i-1) ps in
+             let pst = PS.target (i-1) ps in
+             (* Printf.printf "ps : %s\n%!" (PS.to_string ps); *)
+             (* Printf.printf "dim: %d\n%!" i; *)
+             (* Printf.printf "src: %s\n%!" (PS.to_string pss); *)
+             (* Printf.printf "tgt: %s\n%!" (PS.to_string pst); *)
+             let fvs = PS.free_vars pss in
+             let fvt = PS.free_vars pst in
              if i < 1
                 || not (List.included fvs fvf)
                 || not (List.included fvt fvg)
              then
                let bad = List.union (List.diff fvs fvf) (List.diff fvt fvg) in
                let bad = String.concat ", " (List.map string_of_var bad) in
-               error ~pos:t.pos "not algebraic: %s is not used" bad;
+               error ~pos:t.pos "not algebraic: %s not used in %s" bad (to_string (mk (Coh (c,ps,t))));
            end;
        end;
-     List.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t
+     PS.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t
   | Arr (t,f,g) ->
      check_type env t (mk HomType);
      check_type env f t;
@@ -563,6 +620,7 @@ and leq env e1 e2 =
     | HomType, Type -> true
     | Obj, Obj -> true
     | Coh(_,ps1,t1), Coh(_,ps2,t2) ->
+       (*
        let rec aux l1 s l2 =
          match l1,l2 with
          | [],[] -> leq t1 (subst s t2)
@@ -573,6 +631,17 @@ and leq env e1 e2 =
          | _ -> false
        in
        aux ps1 [] ps2
+        *)
+       let s = ref [] in
+       let ans =
+         PS.fold_left2
+           (fun ans (x1,t1) (x2,t2) ->
+             let t2 = subst !s t2 in
+             s := (x2,mk (Var x1)) :: !s;
+             ans && leq t1 t2
+           ) true ps1 ps2
+       in
+       ans && leq t1 (subst !s t2)
     | Arr (t1,f1,g1), Arr (t2,f2,g2) -> leq t1 t2 && leq f1 f2 && leq g1 g2
     | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
     (* | EVar ({contents = ESome t}, s), _ -> leq (subst s t) t2 *)

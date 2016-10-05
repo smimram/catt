@@ -3,6 +3,7 @@
 open Stdlib
 open Lang
 
+(*
 (** Substitutions. *)
 module Subst = struct
   (** A substitution: a list of terms with their type. *)
@@ -68,3 +69,4 @@ module Subst = struct
     Enum.to_list ss
      *)
 end
+ *)

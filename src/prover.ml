@@ -33,20 +33,20 @@ let exec envs s =
   try
     if s = "exit" then
       exit 0
-    else if s = "build" then
-      let s = read_line () in
-      let ps = Parser.ps Lexer.token (Lexing.from_string s) in
-      PS.check ps;
-      let ps = Subst.of_ps ps in
-      let ps = ref ps in
-      let loop = ref true in
-      while !loop do
-        print_string "=^o^= ";
-        let s = read_line () in
-        let ss = Subst.match_app (fst envs) !ps (mk (Var (VIdent s))) in
-        print_endline ("len: "^string_of_int (List.length ss))
-      done;
-      envs
+    (* else if s = "build" then *)
+      (* let s = read_line () in *)
+      (* let ps = Parser.ps Lexer.token (Lexing.from_string s) in *)
+      (* PS.check ps; *)
+      (* let ps = Subst.of_ps ps in *)
+      (* let ps = ref ps in *)
+      (* let loop = ref true in *)
+      (* while !loop do *)
+        (* print_string "=^o^= "; *)
+        (* let s = read_line () in *)
+        (* let ss = Subst.match_app (fst envs) !ps (mk (Var (VIdent s))) in *)
+        (* print_endline ("len: "^string_of_int (List.length ss)) *)
+      (* done; *)
+      (* envs *)
     else
       Lang.exec envs (parse s)
   with

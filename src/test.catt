@@ -53,15 +53,15 @@ coh unit12l
     (g : x -> y) (a : f -> g)
     :
     comp (unitl' f) (comp (comp12 (id x) a) (unitl g)) -> a
-# let unit12l a = unit12l _ _ _ _ a
+let unit12l a = unit12l _ _ _ _ a
 
-# coh unit12l'
-    # (x : *)
-    # (y : *) (f : x -> y)
-    # (g : x -> y) (a : f -> g)
-    # :
-    # a -> comp (unit1l' f) (comp (comp12 (id x) a) (unit1l g))
-# let unit12l' a = unit12l' _ _ _ _ a
+coh unit12l'
+    (x : *)
+    (y : *) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    a -> comp (unitl' f) (comp (comp12 (id x) a) (unitl g))
+let unit12l' a = unit12l' _ _ _ _ a
 
 coh unit21r
     (x : *)
