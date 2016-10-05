@@ -16,6 +16,10 @@
       match args with
       | (x,t)::args -> mk ?pos (Abs(x,t,abs args e))
       | [] -> e
+
+    let var_name = function
+      | VIdent x -> x
+      | _ -> assert false
 %}
 
 %token COH LET SET ARR ARROW OBJ TYPE HOMTYPE
@@ -38,7 +42,7 @@ prog:
 cmd:
     | LET var args EQ expr { Decl ($2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
-    | COH var args COL expr { Decl ($2,mk (Coh($3,$5))) }
+    | COH var args COL expr { Decl ($2,mk (Coh(var_name $2,$3,$5))) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }

@@ -29,7 +29,7 @@ type expr =
    | Pi of var * expr * expr
    | Abs of var * expr * expr
    | App of expr * expr
-   | Coh of ps * expr
+   | Coh of string * ps * expr (** name, source, target *)
  (** A pasting scheme. *)
  and ps =
    (var * expr) list
@@ -59,16 +59,25 @@ let rec to_string ?(pa=false) e =
   | HomType -> "HomType"
   | Obj -> "*"
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
-  | Coh (ps,t) ->
-     let ps = String.concat_map " " (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string false t)) ps in
-     Printf.sprintf "coh (%s => %s)" ps (to_string false t)  | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
+  | Coh (c,ps,t) ->
+     if c = "" then
+       let ps =
+         String.concat_map
+           " "
+           (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string false t))
+           ps
+       in
+       Printf.sprintf "coh (%s => %s)" ps (to_string false t)
+     else
+       c
+  | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
   | Abs (x,t,e) -> pa (Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e))
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
 
 and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
      "?"^string_of_int n
-     (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
+  (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
   | ESome x -> to_string ~pa x
 (* "[" ^ to_string false x ^ "]" *)
 
@@ -128,7 +137,7 @@ let occurs_evar v e =
     | HomType -> false
     | Obj -> false
     | Arr (t,f,g) -> aux t || aux f || aux g
-    | Coh (ps,e) -> List.exists (fun (x,t) -> aux t) ps || aux e
+    | Coh (_,ps,e) -> List.exists (fun (x,t) -> aux t) ps || aux e
   in
   aux e
 
@@ -149,7 +158,7 @@ let rec subst (s:subst) e =
     | HomType -> HomType
     | Obj -> Obj
     | Arr (t,x,y) -> Arr (subst s t, subst s x, subst s y)
-    | Coh (ps,t) ->
+    | Coh (c,ps,t) ->
        let s = ref s in
        let ps =
          List.map
@@ -161,7 +170,7 @@ let rec subst (s:subst) e =
            ) ps
        in
        let t = subst !s t in
-       Coh (ps,t)
+       Coh (c,ps,t)
     | App (f,x) -> App (subst s f, subst s x)
     | Abs (x,t,e) ->
        let t = subst s t in
@@ -195,7 +204,7 @@ let rec free_evar e =
   | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
   | Arr (t, f, g) -> List.unionq (free_evar t) (List.unionq (free_evar f) (free_evar g))
   | Pi (_,t,u) -> List.unionq (free_evar t) (free_evar u)
-  | Coh (ps,t) -> List.fold_left (fun l (x,t) -> List.unionq (free_evar t) l) (free_evar t) ps
+  | Coh (_,ps,t) -> List.fold_left (fun l (x,t) -> List.unionq (free_evar t) l) (free_evar t) ps
 
 (** Replace EVars by fresh ones. *)
 (* TODO: use levels? *)
@@ -222,10 +231,10 @@ let instantiate e =
       | App (f,e) -> App (aux f, aux e)
       | Pi (x,t,u) -> Pi (x, aux t, aux u)
       | HomType | Obj as e -> e
-      | Coh (ps,t) ->
+      | Coh (c,ps,t) ->
          let ps = List.map (fun (x,t) -> x,aux t) ps in
          let t = aux t in
-         Coh (ps, t)
+         Coh (c,ps,t)
       | Arr (t,f,g) -> Arr (aux t, aux f, aux g)
     in
     mk ~pos:e.pos desc
@@ -243,7 +252,7 @@ let rec free_vars e =
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
   | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
-  | Coh (ps,t) -> List.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
+  | Coh (c,ps,t) -> List.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
 
 (** Typing environment. *)
 module Env = struct
@@ -308,7 +317,7 @@ let rec normalize env e =
        let e = normalize (Env.add env x t) e in
        Abs (x,t,e)
     | Obj -> Obj
-    | Coh (ps,t) ->
+    | Coh (c,ps,t) ->
        let env = ref env in
        let ps =
          List.map
@@ -319,7 +328,7 @@ let rec normalize env e =
            ) ps
        in
        let t = normalize !env t in
-       Coh (ps,t)
+       Coh (c,ps,t)
     | Arr (t,f,g) ->
        let t = normalize env t in
        let f = normalize env f in
@@ -456,7 +465,7 @@ let rec infer_type env e =
      subst [x,e] u
   | HomType -> mk Type
   | Obj -> mk HomType
-  | Coh (ps,t) ->
+  | Coh (c,ps,t) ->
      (* Normalize types in order to reveal hidden variables. *)
      let env =
        List.fold_left
@@ -530,7 +539,7 @@ and leq env e1 e2 =
     | HomType, HomType -> true
     | HomType, Type -> true
     | Obj, Obj -> true
-    | Coh(ps1,t1), Coh(ps2,t2) ->
+    | Coh(_,ps1,t1), Coh(_,ps2,t2) ->
        let rec aux l1 s l2 =
          match l1,l2 with
          | [],[] -> leq t1 (subst s t2)
