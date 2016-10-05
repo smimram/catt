@@ -24,7 +24,7 @@
 
 %token COH LET SET ARR ARROW OBJ TYPE HOMTYPE
 %token LPAR RPAR LACC RACC COL EQ US
-%token <string> IDENT
+%token <string> IDENT STRING
 %token CHECK EVAL HYP ENV
 %token EOF
 
@@ -42,7 +42,7 @@ prog:
 cmd:
     | LET var args EQ expr { Decl ($2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
-    | COH var args COL expr { Decl ($2,mk (Coh(var_name $2,$3,$5))) }
+    | COH var args COL expr { Decl ($2,mk (Coh (var_name $2,$3,$5))) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
@@ -74,3 +74,8 @@ app_expr:
 expr:
     | app_expr { $1 }
     | expr ARR expr { mk (Arr (fresh_evar (),$1,$3)) }
+    | COH stringopt args COL simple_expr { mk (Coh ($2,$3,$5)) }
+
+stringopt:
+    | STRING { $1 }
+    | { "" }

@@ -13,7 +13,7 @@ rule token = parse
   | "eval" { EVAL }
   | "env" { ENV }
   | "Type" { TYPE }
-  | "HomType" { HOMTYPE }
+  | "Hom" { HOMTYPE }
   | "(" { LPAR }
   | ")" { RPAR }
   | ":" { COL }
@@ -25,5 +25,6 @@ rule token = parse
   | (['_''a'-'z''A'-'Z'](['a'-'z''A'-'Z''0'-'9''_']|'-'['a'-'z''A'-'Z''0'-'9''_'])*['\'']* as str) { IDENT str }
   | space+ { token lexbuf }
   | "#"[^'\n']* { token lexbuf }
+  | '"'([^'"']* as s)'"' { STRING s }
   | "\n" { Lexing.new_line lexbuf; token lexbuf }
   | eof { EOF }

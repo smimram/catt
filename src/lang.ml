@@ -7,6 +7,8 @@ open Common
 let groupoid = ref false
 (** Do we allow unsafe uses of meta-variables? *)
 let unsafe_evars = ref false
+(** Parametric pasting schemes. *)
+let parametric_schemes = ref true
 
 (** A variable. *)
 type var =
@@ -60,7 +62,7 @@ let rec to_string ?(pa=false) e =
   | Obj -> "*"
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
   | Coh (c,ps,t) ->
-     if c = "" then
+     if c = "" || true then
        let ps =
          String.concat_map
            " "
@@ -77,11 +79,13 @@ let rec to_string ?(pa=false) e =
 and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
      "?"^string_of_int n
-  (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
+     (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
   | ESome x -> to_string ~pa x
-(* "[" ^ to_string false x ^ "]" *)
+     (* "[" ^ to_string false x ^ "]" *)
 
 let string_of_evarref x = string_of_evar !x
+
+let string_of_expr = to_string
 
 (** Generate a fresh variable name. *)
 let fresh_var =
@@ -246,7 +250,9 @@ let rec free_vars e =
   (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
   match (unevar e).desc with
   | Var x -> [x]
-  | EVar (x,s) -> error ~pos:e.pos "don't know how to compute free variables in meta-variables"
+  | EVar (x,s) ->
+     if !parametric_schemes then [] else
+       error ~pos:e.pos "don't know how to compute free variables in meta-variables"
   | Type | HomType | Obj -> []
   | Arr (t,f,g) -> (free_vars t)@(free_vars f)@(free_vars g)
   | App (f,x) -> (free_vars f)@(free_vars x)
@@ -346,10 +352,11 @@ module PS = struct
 
   (** Check that a pasting scheme is well-formed. *)
   let check (l:t) =
+    (* Printf.printf "check: %s\n%!" (to_string l); *)
     let x0,l =
       match l with
       | (x,t)::l ->
-         assert (t.desc = Obj);
+         if not !parametric_schemes then assert ((unevar t).desc = Obj);
          x,l
       | [] -> error "pasting scheme cannot be empty"
     in
@@ -389,18 +396,29 @@ module PS = struct
 
   (** Dimensions of generators. *)
   let dims (ps:t) =
+    (* Printf.printf "dims: %s\n%!" (to_string ps); *)
+    let x,t,ps =
+      match ps with
+      | (x,t)::ps -> x,t,ps
+      | _ -> assert false
+    in
     let rec aux env = function
-      | (x,{desc = Obj})::ps ->
+      | (x,t')::ps when t'.desc = t.desc ->
+         let env = (x,0)::env in
+         aux env ps
+      (* | (x,{desc = Var _})::ps *)
+      | (x,{desc = EVar _})::ps ->
          let env = (x,0)::env in
          aux env ps
       | (x,{desc = Arr (_, {desc = Var f}, {desc = Var g})})::ps ->
          let d = List.assoc f env in
          let env = (x,d+1)::env in
          aux env ps
-      | _::_ -> assert false
       | [] -> env
+      | _ -> assert false
     in
-    aux [] ps
+    if not !parametric_schemes then assert (t.desc = Obj);
+    aux [x,0] ps
 
   (** Dimension of a pasting scheme. *)
   let dim ps =
@@ -467,16 +485,20 @@ let rec infer_type env e =
   | Obj -> mk HomType
   | Coh (c,ps,t) ->
      (* Normalize types in order to reveal hidden variables. *)
-     let env =
-       List.fold_left
-         (fun env (x,t) ->
-           (* let t = normalize env t in *)
-           check_type env t (mk HomType);
-           Env.add env x t
-         ) env ps
+     let env = ref env in
+     let ps =
+       List.map
+         (fun (x,t) ->
+           let t = normalize !env t in
+           check_type !env t (mk HomType);
+           env := Env.add !env x t;
+           x,t
+         ) ps
      in
+     let env = !env in
      let t = normalize env t in
      check_type env t (mk HomType);
+     (* Printf.printf "COH: %s\n%!" (to_string (mk (Coh(c,ps,t)))); *)
      (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
      (* Printf.printf "type: %s\n%!" (to_string t); *)
      (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
@@ -493,8 +515,9 @@ let rec infer_type env e =
          let rec close_vars f =
            match (unevar (infer_type env f)).desc with
            | Arr (_,x,y) -> List.union (close_vars x) (List.union (close_vars y) (free_vars f))
-           | Obj -> free_vars f
-           | _ -> assert false
+           | t ->
+              if not !parametric_schemes then assert (t = Obj);
+              free_vars f
          in
          let fvf = close_vars f in
          let fvg = close_vars g in
@@ -522,7 +545,7 @@ let rec infer_type env e =
 
 and check_type env e t =
   let te = infer_type env e in
-  if not (leq env te t) then error "got %s, but %s is expected" (to_string te) (to_string t)
+  if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t)
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
@@ -605,12 +628,13 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
      (* let t = infer_type env e in *)
      let x' = fresh_var x in
      info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
-     (* Try to resolve meta-vairables. *)
-     (* if not mv then ignore (infer_type env (normalize env e)); *)
-     if not !unsafe_evars && free_evar e <> [] then
+     (* Try to resolve meta-variables. *)
+     let mv = free_evar e in
+     let mv = List.filter (fun x -> match !x with ENone (n,t) -> (unevar t).desc <> HomType | ESome _ -> assert false) mv in
+     if not !unsafe_evars && mv <> [] then
        (
-         let mv = String.concat ", " (List.map string_of_evarref (free_evar e)) in
-         error "expression %s has meta-variables %s" (to_string e) mv
+         let mv = String.concat ", " (List.map string_of_evarref mv) in
+         error ~pos:e.pos "expression %s has meta-variables %s" (to_string e) mv
        );
      let env = Env.add env x' ~value:e t in
      let s = (x,mk (Var x'))::s in

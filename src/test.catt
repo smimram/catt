@@ -1,70 +1,33 @@
-coh comp1
-    (x : *)
-    (y : *) (f : x -> y)
-    (z : *) (g : y -> z)
+let comp (X : Hom) = coh "comp"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
     :
     (x -> z)
-let comp1 f g = comp1 _ _ f _ g
+let comp f g = comp _ _ _ f _ g
 
-coh assoc1
-    (x : *)
-    (y : *) (f : x -> y)
-    (z : *) (g : y -> z)
-    (w : *) (h : z -> w)
+let assoc (X : Hom) = coh "assoc"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    (w : X) (h : z -> w)
     :
-    comp1 (comp1 f g) h -> comp1 f (comp1 g h)
-let assoc1 f g h = assoc1 _ _ f _ g _ h
+    (comp (comp f g) h -> comp f (comp g h))
+let assoc f g h = assoc _ _ _ f _ g _ h
 
-coh id1 (x : *) : (x -> x)
+let id (X : Hom) = coh "id" (x : X) : (x -> x)
+let id (x : _) = id _ x
 
-coh unit1l
-    (x : *)
-    (y : *) (f : x -> y)
-    :
-    comp1 (id1 x) f -> f
-let unit1l f = unit1l _ _ f
+let unitl (X : Hom) = coh "unitl" (x : X) (y : X) (f : x -> y) : (comp (id x) f -> f)
+let unitl f = unitl _ _ _ f
 
-coh unit1l'
-    (x : *)
-    (y : *) (f : x -> y)
-    :
-    f -> comp1 (id1 x) f
-let unit1l' f = unit1l' _ _ f
+let unitl' (X : Hom) = coh "unitl'" (x : X) (y : X) (f : x -> y) : (f -> comp (id x) f)
+let unitl' f = unitl' _ _ _ f
 
-coh unit1r
-    (x : *)
-    (y : *) (f : x -> y)
-    :
-    comp1 f (id1 y) -> f
-let unit1r f = unit1r _ _ f
-
-coh unit1r'
-    (x : *)
-    (y : *) (f : x -> y)
-    :
-    f -> comp1 f (id1 y)
-let unit1r' f = unit1r' _ _ f
-
-coh unit1lr
-    (x : *)
-    :
-    unit1l (id1 x) -> unit1r (id1 x)
-
-coh id2
-    (x : *)
-    (y : *) (f : x -> y)
-    :
-    (f -> f)
-let id2 f = id2 _ _ f
-
-coh comp2
-    (x : *)
-    (y : *) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    (h : x -> y) (b : g -> h)
-    :
-    f -> h
-let comp2 a b = comp2 _ _ _ _ a _ b
+let unitr (X : Hom) = coh "unitr" (x : *) (y : *) (f : x -> y) : (comp f (id y) -> f)
+let unitr f = unitr _ _ _ f
+let unitr' (X : Hom) = coh "unitr'" (x : *) (y : *) (f : x -> y) : (f -> comp f (id y))
+let unitr' f = unitr' _ _ _ f
 
 coh comp12
     (x : *)
@@ -72,7 +35,7 @@ coh comp12
     (z : *) (g : y -> z)
     (g' : y -> z) (a : g -> g')
     :
-    comp1 f g -> comp1 f g'
+    comp f g -> comp f g'
 let comp12 f a = comp12 _ _ f _ _ _ a
 
 coh comp21
@@ -81,7 +44,7 @@ coh comp21
     (f' : x -> y) (a : f -> f')
     (z : *) (g : y -> z)
     :
-    comp1 f g -> comp1 f' g
+    comp f g -> comp f' g
 let comp21 a g = comp21 _ _ _ _ a _ g
 
 coh unit12l
@@ -89,23 +52,23 @@ coh unit12l
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1l' f) (comp2 (comp12 (id1 x) a) (unit1l g)) -> a
-let unit12l a = unit12l _ _ _ _ a
+    comp (unitl' f) (comp (comp12 (id x) a) (unitl g)) -> a
+# let unit12l a = unit12l _ _ _ _ a
 
-coh unit12l'
-    (x : *)
-    (y : *) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    :
-    a -> comp2 (unit1l' f) (comp2 (comp12 (id1 x) a) (unit1l g))
-let unit12l' a = unit12l' _ _ _ _ a
+# coh unit12l'
+    # (x : *)
+    # (y : *) (f : x -> y)
+    # (g : x -> y) (a : f -> g)
+    # :
+    # a -> comp (unit1l' f) (comp (comp12 (id x) a) (unit1l g))
+# let unit12l' a = unit12l' _ _ _ _ a
 
 coh unit21r
     (x : *)
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    comp2 (unit1r' f) (comp2 (comp21 a (id1 y)) (unit1r g)) -> a
+    comp (unitr' f) (comp (comp21 a (id y)) (unitr g)) -> a
 let unit21 r a = unit21r _ _ _ _ a
 
 coh unit21r'
@@ -113,7 +76,7 @@ coh unit21r'
     (y : *) (f : x -> y)
     (g : x -> y) (a : f -> g)
     :
-    a -> comp2 (unit1r' f) (comp2 (comp21 a (id1 y)) (unit1r g))
+    a -> comp (unitr' f) (comp (comp21 a (id y)) (unitr g))
 let unit21r' a = unit21r' _ _ _ _ a
 
 coh ich2
@@ -123,7 +86,7 @@ coh ich2
     (z : *) (g : y -> z)
     (g' : y -> z) (b : g -> g')
     :
-    comp2 (comp21 a g) (comp12 f' b) -> comp2 (comp12 f b) (comp21 a g')
+    comp (comp21 a g) (comp12 f' b) -> comp (comp12 f b) (comp21 a g')
 let ich2 a b = ich2 _ _ _ _ a _ _ _ b
 
 # MacLane's coherence theorem
@@ -134,9 +97,9 @@ coh maclane
     (v : *) (h : z -> v)
     (w : *) (i : v -> w)
     :
-    comp2 (assoc1 (comp1 f g) h i) (assoc1 f g (comp1 h i))
+    comp (assoc (comp f g) h i) (assoc f g (comp h i))
     ->
-    comp2 (comp21 (assoc1 f g h) i) (comp2 (assoc1 f (comp1 g h) i) (comp12 f (assoc1 g h i)))
+    comp (comp21 (assoc f g h) i) (comp (assoc f (comp g h) i) (comp12 f (assoc g h i)))
 
 coh comp3
     (x : *)
@@ -155,7 +118,7 @@ coh comp32
     (b : f -> g) (F : a -> b)
     (h : x -> y) (c : g -> h)
     :
-    comp2 a c -> comp2 b c
+    comp a c -> comp b c
 let comp32 F a = comp32 _ _ _ _ _ _ F _ a
 
 coh comp23
@@ -165,22 +128,22 @@ coh comp23
     (h : x -> y) (b : g -> h)
     (c : g -> h) (F : b -> c)
     :
-    comp2 a b -> comp2 a c
+    comp a b -> comp a c
 let comp23 a F = comp23 _ _ _ _ a _ _ _ F
 
 let comp3_1 F G = comp3 (comp32 F _) (comp23 _ G)
 
-let eh1 (x : * )(a : id1 x -> id1 x) (b : id1 x -> id1 x) =
+let eh1 (x : * )(a : id x -> id x) (b : id x -> id x) =
     comp3_1 (unit21r' a) (unit12l' b)
 
-# let eh2 (a : id1 -> id1) (b : id1 -> id1) =
+# let eh2 (a : id -> id) (b : id -> id) =
     # comp23 () (ich2 a b)
 
-# let eh (a : id1 -> id1) (b : id1 -> id1) =
+# let eh (a : id -> id) (b : id -> id) =
     # comp3 (eh1 a b) (eh2 a b)
 
-# let eckmann-hilton (a : id1 -> id1) (b : id1 -> id1) =
-    # comp2 (comp21 a id1) (comp12 id1 b)
+# let eckmann-hilton (a : id -> id) (b : id -> id) =
+    # comp2 (comp21 a id) (comp12 id b)
 
 
 
