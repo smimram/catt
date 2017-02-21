@@ -1,3 +1,5 @@
+(** Main for CATT. *)
+
 let parse_file f =
   let sin =
     let fi = open_in f in

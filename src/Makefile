@@ -2,6 +2,9 @@ SOURCES = stdlib.ml common.ml lang.ml langExt.ml parser.mly lexer.mll prover.ml 
 RESULT = catt
 ANNOTATE = true
 
+DOC_FILES = lang.ml prover.ml catt.ml
+OCAMLDOCFLAGS := -sort
+
 all: dnc
 	./catt test.catt
 

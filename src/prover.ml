@@ -26,9 +26,11 @@ let parse s =
        pos.Lexing.pos_lnum
        (pos.Lexing.pos_cnum - pos.Lexing.pos_bol - 1)
 
+(** Initialize the prover. *)
 let init () =
   print_string "=^.^= "
 
+(** Execute a command. *)
 let exec envs s =
   try
     if s = "exit" then
@@ -53,7 +55,6 @@ let exec envs s =
   | End_of_file -> print_newline () ; exit 0
   | Failure e -> print_endline ("Error: " ^ e ^ "."); envs
   | e -> print_endline ("Error: " ^ Printexc.to_string e); envs
-
 
 (** Interactive loop. *)
 let loop envs =

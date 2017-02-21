@@ -10,6 +10,8 @@ let unsafe_evars = ref false
 (** Parametric pasting schemes. *)
 let parametric_schemes = ref true
 
+(** {2 Data types} *)
+
 (** A variable. *)
 type var =
   | VIdent of string
@@ -21,37 +23,47 @@ type expr =
     desc : desc;
     pos : Pos.t;
   }
+
+ (** Contents of an expression. *)
  and desc =
-   | Var of var
-   | EVar of (evar ref * subst) (** expression, substition *)
+   | Var of var (** type variable *)
+   | EVar of (evar ref * subst) (** meta-variable (expression, substition) *)
    | Type
-   | HomType
-   | Obj
-   | Arr of expr * expr * expr
+   | HomType (** a type of hom set *)
+   | Obj (** type of 0-cells *)
+   | Arr of expr * expr * expr (** arrow type *)
    | Pi of var * expr * expr
    | Abs of var * expr * expr
    | App of expr * expr
-   | Coh of string * ps * expr (** name, source, target *)
+   | Coh of string * ps * expr (** coherence (name, source, target) *)
+
  (** A pasting scheme. *)
  and ps =
-   | PNil of (var * expr)
-   | PCons of ps * (var * expr) * (var * expr)
-   | PDrop of ps
+   | PNil of (var * expr) (** start *)
+   | PCons of ps * (var * expr) * (var * expr) (** extend *)
+   | PDrop of ps (** drop *)
+
  (** A substitution. *)
  and subst = (var * expr) list
+
+ (** A meta-variable. *)
  and evar =
    | ENone of int * expr (** unknown variable with given number and type *)
-   | ESome of expr
+   | ESome of expr (** instantiated variable *)
 
+(** Create an expression from its contents. *)
 let mk ?pos desc =
   let pos = Option.default Pos.dummy pos in
   { desc; pos }
 
+(** {2 String representation} *)
+    
+(** String representation of a variable. *)
 let string_of_var = function
   | VIdent x -> x
   | VFresh (x,n) -> x ^ "." ^ string_of_int n
 
-(** String representation. *)
+(** String representation of an expression. *)
 let rec to_string ?(pa=false) e =
   let to_string pa e = to_string ~pa e in
   let string_of_evar x = string_of_evar ~pa x in
@@ -72,6 +84,7 @@ let rec to_string ?(pa=false) e =
   | Abs (x,t,e) -> pa (Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e))
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
 
+(** String representation of a meta-variable. *)
 and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
      "?"^string_of_int n
@@ -79,6 +92,7 @@ and string_of_evar ?(pa=false) = function
   | ESome x -> to_string ~pa x
      (* "[" ^ to_string false x ^ "]" *)
 
+(** String representation of a pasting scheme. *)
 and string_of_ps = function
   | PNil (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string t)
   | PCons (ps,(x,t),(y,u)) -> Printf.sprintf "%s (%s : %s) (%s : %s)" (string_of_ps ps) (string_of_var x) (to_string t) (string_of_var y) (to_string u)
@@ -90,10 +104,13 @@ let string_of_expr = to_string
 
 (** Pasting schemes. *)
 module PS = struct
+  (** A pasting scheme. *)
   type t = ps
 
+  (** String representation. *)
   let to_string = string_of_ps
 
+  (** Dangling variable. *)
   let rec marker ps =
     (* Printf.printf "marker: %s\n%!" (to_string ps); *)
     match ps with
@@ -123,6 +140,7 @@ module PS = struct
     | PCons (ps,(y,_),(f,_)) -> f::y::(free_vars ps)
     | PDrop ps -> free_vars ps
 
+  (** Create from a context. *)
   let make l : t =
     (* Printf.printf "make: %s\n%!" (String.concat_map " " (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (string_of_expr t)) l); *)
     let x0,t0,l =
@@ -238,6 +256,8 @@ module PS = struct
        fold_right f ps s
     | PDrop ps -> fold_right f ps s
 end
+
+(** {2 Variables} *)
 
 (** Generate a fresh variable name. *)
 let fresh_var =
@@ -412,12 +432,13 @@ let rec free_vars e =
   | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
   | Coh (c,ps,t) -> PS.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
 
-(** Typing environment. *)
+(** Typing environments. *)
 module Env = struct
   (** A typing environment assign to each variable, its value (when known, which
   should be in normal form) and its type. *)
   type t = (var * (expr option * expr)) list
 
+  (** String representation. *)
   let to_string (env:t) =
     let f (x, (e, t)) =
       let x = string_of_var x in
@@ -430,16 +451,21 @@ module Env = struct
     in
     String.concat "\n" (List.map f (List.rev env))
 
+  (** Empty environment. *)
   let empty : t = []
 
+  (** Type of an expression in an environment. *)
   let typ (env:t) x = snd (List.assoc x env)
 
+  (** Value of an expression in an environment. *)
   let value (env:t) x = fst (List.assoc x env)
 
   let add (env:t) x ?value t : t = (x,(value,t))::env
 
   let add_ps env ps = List.fold_left (fun env (x,t) -> add env x t) env ps
 end
+
+(** {2 Reduction and typing} *)
 
 (** Normalize a value. *)
 let rec normalize env e =
@@ -600,6 +626,7 @@ let rec infer_type env e =
      check_type env g t;
      mk HomType
 
+(** Check that an expression has given type. *)
 and check_type env e t =
   let te = infer_type env e in
   if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t)
@@ -659,15 +686,18 @@ and leq env e1 e2 =
   in
   leq (normalize env e1) (normalize env e2)
 
+(** {2 Programs} *)
+
 (** A command. *)
 type cmd =
-  | Decl of var * expr
-  | Axiom of var * expr
-  | Check of expr
-  | Eval of expr
+  | Decl of var * expr (** Declare a variable. *)
+  | Axiom of var * expr (** Declare an axiom of given type. *)
+  | Check of expr (** Check the type of an expression. *)
+  | Eval of expr (** Evaluate an expression. *)
   | Env (** Display the environment. *)
-  | Set of string * string
+  | Set of string * string (** Set an option. *)
 
+(** String representation of a command. *)
 let string_of_cmd = function
   | Decl (x,e) -> Printf.sprintf "let %s = %s" (string_of_var x) (to_string e)
   | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
@@ -681,8 +711,10 @@ type prog = cmd list
 
 (** Running environment. *)
 module Envs = struct
+  (** A running environment. *)
   type t = Env.t * subst
 
+  (** Empty running environment. *)
   let empty : t = Env.empty, []
 end
 
