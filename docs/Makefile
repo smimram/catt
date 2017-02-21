@@ -4,9 +4,9 @@ update: js ocamldoc
 
 js:
 	$(MAKE) -C ../src web
-	chmod a+w catt.html catt.css catt.js
-	cp ../src/catt.html ../src/catt.css ../src/catt.js .
-	chmod a-w catt.html catt.css catt.js
+	chmod a+w catt.js
+	cp ../src/catt.js .
+	chmod a-w catt.js
 
 ocamldoc:
 	$(MAKE) -C ../src htdoc

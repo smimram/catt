@@ -1,3 +1,17 @@
+body {
+    margin: 2% 10%;
+    font-family: sans-serif;
+}
+
+a {
+    color: darkblue;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
 h1 {
     text-align: center;
 }
@@ -13,5 +27,9 @@ h1 {
 textarea {
     color: lightgreen;
     background-color: black;
-    width: 90%;
+    width: 100%;
+}
+
+pre {
+    color: darkred;
 }
