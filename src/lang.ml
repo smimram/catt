@@ -3,12 +3,16 @@
 open Stdlib
 open Common
 
+(** {2 Global options} *)
+
 (** Do we want the theory of groupoids? *)
 let groupoid = ref false
 (** Do we allow unsafe uses of meta-variables? *)
 let unsafe_evars = ref false
-(** Parametric pasting schemes. *)
+(** Do we allow parametric pasting schemes? *)
 let parametric_schemes = ref true
+(** Do we show instance numbers in strings? *)
+let show_instances = ref true
 
 (** {2 Data types} *)
 
@@ -61,7 +65,7 @@ let mk ?pos desc =
 (** String representation of a variable. *)
 let string_of_var = function
   | VIdent x -> x
-  | VFresh (x,n) -> x ^ "." ^ string_of_int n
+  | VFresh (x,n) -> x ^ (if !show_instances then "." ^ string_of_int n else "")
 
 (** String representation of an expression. *)
 let rec to_string ?(pa=false) e =
@@ -773,6 +777,8 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
        groupoid := bool ()
      else if o = "unsafe-evars" then
        unsafe_evars := bool ()
+     else if o = "show-instances" then
+       show_instances := bool ()
      else if o = "exit" then
        exit 0
      else
