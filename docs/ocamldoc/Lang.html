@@ -13,7 +13,8 @@
 <link title="Index of modules" rel=Appendix href="index_modules.html">
 <link title="Catt" rel="Chapter" href="Catt.html">
 <link title="Lang" rel="Chapter" href="Lang.html">
-<link title="Prover" rel="Chapter" href="Prover.html"><link title="Data types" rel="Section" href="#2_Datatypes">
+<link title="Prover" rel="Chapter" href="Prover.html"><link title="Global options" rel="Section" href="#2_Globaloptions">
+<link title="Data types" rel="Section" href="#2_Datatypes">
 <link title="String representation" rel="Section" href="#2_Stringrepresentation">
 <link title="Variables" rel="Section" href="#2_Variables">
 <link title="Reduction and typing" rel="Section" href="#2_Reductionandtyping">
@@ -31,6 +32,8 @@
 Core part of the language.<br>
 </div>
 <hr width="100%">
+<br>
+<h2 id="2_Globaloptions">Global options</h2><br>
 
 <pre><span id="VALgroupoid"><span class="keyword">val</span> groupoid</span> : <code class="type">bool Pervasives.ref</code></pre><div class="info ">
 Do we want the theory of groupoids?<br>
@@ -41,7 +44,11 @@ Do we allow unsafe uses of meta-variables?<br>
 </div>
 
 <pre><span id="VALparametric_schemes"><span class="keyword">val</span> parametric_schemes</span> : <code class="type">bool Pervasives.ref</code></pre><div class="info ">
-Parametric pasting schemes.<br>
+Do we allow parametric pasting schemes?<br>
+</div>
+
+<pre><span id="VALshow_instances"><span class="keyword">val</span> show_instances</span> : <code class="type">bool Pervasives.ref</code></pre><div class="info ">
+Do we show instance numbers in strings?<br>
 </div>
 <br>
 <h2 id="2_Datatypes">Data types</h2><br>
