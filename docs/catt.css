@@ -29,6 +29,7 @@ textarea {
     color: lightgreen;
     background-color: black;
     width: 100%;
+    font-size: 11pt;
 }
 
 pre {
