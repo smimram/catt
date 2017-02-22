@@ -1,0 +1,301 @@
+## The Eckmann-Hilton morphism
+
+set show-instances = false
+
+# Identity
+
+let id (X : Hom) = coh "id" (x : X) : (x -> x)
+let id (x : _) = id _ x
+
+# Composition
+
+let comp (X : Hom) = coh "comp"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    :
+    (x -> z)
+let comp f g = comp _ _ _ f _ g
+
+let comp1 f = f
+let comp2 = comp
+let comp3 f g h = comp f (comp g h)
+let comp4 f4 f3 f2 f1 = comp f4 (comp3 f3 f2 f1)
+let comp5 f5 f4 f3 f2 f1 = comp f5 (comp4 f4 f3 f2 f1)
+
+let compl' (X : Hom) = coh "compl'"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    (g' : y -> z) (a : g -> g')
+    :
+    (comp f g -> comp f g')
+let compl' f a = compl' _ _ _ f _ _ _ a
+
+let compl2' f g a = compl' f (compl' g a)
+
+let compr' (X : Hom) = coh "compr'"
+    (x : X)
+    (y : X) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : X) (g : y -> z)
+    :
+    (comp f g -> comp f' g)
+let compr' a g = compr' _ _ _ _ _ a _ g
+
+let complr' f a g = compl' f (compr' a g)
+let compl2r' f1 f2 a g = compl2' f1 f2 (compr' a g)
+
+let comp' a b = comp (compr' a _) (compl' _ b)
+let comp2' = comp'
+let comp3' a b c = comp' a (comp' b c)
+
+let compl'' (X : Hom) = coh "compl''"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    (g' : y -> z) (a : g -> g')
+    (b : g -> g') (F : a -> b)
+    :
+    (compl' f a -> compl' f b)
+let compl'' f F = compl'' _ _ _ f _ _ _ _ _ F
+
+let compr'' (X : Hom) = coh "compr''"
+    (x : X)
+    (y : X) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (b : f -> f') (F : a -> b)
+    (z : X) (g : y -> z)
+    :
+    (compr' a g -> compr' b g)
+let compr'' F g = compr'' _ _ _ _ _ _ _ F _ g
+
+let comp'' F G = comp' (compl'' _ F) (compr'' F _)
+
+# Associativity
+
+let assoc (X : Hom) = coh "assoc"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    (w : X) (h : z -> w)
+    :
+    (comp (comp f g) h -> comp f (comp g h))
+let assoc f g h = assoc _ _ _ f _ g _ h
+
+let assoc1 f = f
+let assoc2 = assoc
+let assoc3 f1 f2 f3 g =
+    comp
+    (assoc f1 (comp f2 f3) g)
+    (comp' (id f1) (assoc f2 f3 g))
+
+let assoc- (X : Hom) = coh "assoc"
+    (x : X)
+    (y : X) (f : x -> y)
+    (z : X) (g : y -> z)
+    (w : X) (h : z -> w)
+    :
+    (comp f (comp g h) -> comp (comp f g) h)
+let assoc- f g h = assoc- _ _ _ f _ g _ h
+
+# Units
+
+let unitl (X : Hom) = coh "unitl"
+    (x : X)
+    (y : X) (f : x -> y)
+    :
+    (comp (id x) f -> f)
+let unitl f = unitl _ _ _ f
+
+let unitl- (X : Hom) = coh "unitl-"
+    (x : X)
+    (y : X) (f : x -> y)
+    :
+    (f -> comp (id x) f)
+let unitl- f = unitl- _ _ _ f
+
+let unitr (X : Hom) = coh "unitr"
+    (x : X)
+    (y : X) (f : x -> y)
+    :
+    (comp f (id y) -> f)
+let unitr f = unitr _ _ _ f
+
+let unitr- (X : Hom) = coh "unitr-"
+    (x : X)
+    (y : X) (f : x -> y)
+    :
+    (f -> comp f (id y))
+let unitr- f = unitr- _ _ _ f
+
+let unitlr (X : Hom) = coh "unitlr"
+    (x : X)
+    :
+    (unitl (id x) -> unitr (id x))
+let unitlr x = unitlr _ x
+
+let unitr+- (X : Hom) = coh "unitr+-"
+    (x : X)
+    (y : X) (f : x -> y)
+    :
+    (comp (unitr f) (unitr- f) -> id (comp f (id y)))
+let unitr+- f = unitr+- _ _ _ f
+
+let unitl' (X : Hom) = coh "unitl'"
+    (x : X)
+    (y : X) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    (
+    comp3
+    (unitl- f)
+    (compl' (id x) a)
+    (unitl g)
+    ->
+    a
+    )
+let unitl' a = unitl' _ _ _ _ _ a
+
+let unitl'- (X : Hom) = coh "unitl'-"
+    (x : X)
+    (y : X) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    (
+    a
+    ->
+    comp3
+    (unitl- f)
+    (compl' (id x) a)
+    (unitl g)
+    )
+let unitl'- a = unitl'- _ _ _ _ _ a
+
+let unitr' (X : Hom) = coh "unitr'-"
+    (x : X)
+    (y : X) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    (
+    comp3
+    (unitr- f)
+    (compr' a (id y))
+    (unitr g)
+    ->
+    a
+    )
+let unitr' a = unitr' _ _ _ _ _ a
+
+let unitr'- (X : Hom) = coh "unitr'-"
+    (x : X)
+    (y : X) (f : x -> y)
+    (g : x -> y) (a : f -> g)
+    :
+    (
+    a
+    ->
+    comp3
+    (unitr- f)
+    (compr' a (id y))
+    (unitr g)
+    )
+let unitr'- a = unitr'- _ _ _ _ _ a
+
+# Exchange law
+
+let ich (X : Hom) = coh "ich"
+    (x : X)
+    (y : X) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : X) (g : y -> z)
+    (g' : y -> z) (b : g -> g')
+    :
+    (
+    comp (compl' f b) (compr' a g')
+    ->
+    comp (compr' a g) (compl' f' b)
+    )
+let ich a b = ich _ _ _ _ _ a _ _ _ b
+
+let ich- (X : Hom) = coh "ich-"
+    (x : X)
+    (y : X) (f : x -> y)
+    (f' : x -> y) (a : f -> f')
+    (z : X) (g : y -> z)
+    (g' : y -> z) (b : g -> g')
+    :
+    (
+    comp (compr' a g) (compl' f' b)
+    ->
+    comp (compl' f b) (compr' a g')
+    )
+let ich- a b = ich- _ _ _ _ _ a _ _ _ b
+
+# let xch (X : Hom) = coh "xch"
+    # (x : X)
+    # (y : X) (f : x -> y)
+    # (f' : x -> y) (a : f -> f')
+    # (f'' : x -> y) (a' : f' -> f'')
+    # (z : X) (g : y -> z)
+    # (g' : y -> z) (b : g -> g')
+    # (g'' : y -> z) (b' : g' -> g'')
+    # :
+    # (
+    # comp' (comp a a') (comp b b')
+    # ->
+    # comp (comp' a b) (comp' a' b')
+    # )
+# let xch a a' b b' = xch _ _ _ _ _ a _ a' _ _ _ b _ b'
+
+# Eckmann-Hilton
+
+# let eh (X : Hom) (x : X)
+    # (a : id x -> id x)
+    # (b : id x -> id x)
+    # =
+    # comp3
+    # (comp'
+      # (comp3
+        # (unitl'- a)
+        # (assoc- _ _ _)
+        # (comp' (id _) (unitlr x))
+      # )
+      # (unitr'- b)
+    # )
+    # (assoc (comp _ _) _ _)
+
+let eh (X : Hom) (x : X)
+    (a : id x -> id x)
+    (b : id x -> id x)
+    =
+    comp4
+    (comp'
+      (unitl'- a)
+      (unitr'- b)
+    )
+    (assoc3 _ _ _ _)
+    (compl2r' _ _ (unitlr x) _)
+    (compl2' _ _
+      (comp3
+        (assoc- _ _ _)
+        (comp' (unitr+- (id x)) (id _))
+        (unitl _)
+      )
+    )
+    # (complr' (unitl (id x)) (ich b a) (unitr- (id x)))
+
+# got
+
+# X
+# | x -> x
+# | comp x x (id x) x (id x) -> comp x x (id x) x (id x)
+# | comp (comp x x (id x) x (id x)) (comp x x (id x) x (id x)) (compl' x x (id x) x (id x) (id x) a) (comp x x (id x) x (id x)) (compr' x x (id x) (id x) b x (id x))
+# ->comp (comp x x (id x) x (id x)) (comp x x (id x) x (id x)) (compr' x x (id x) (id x) b x (id x)) (comp x x (id x) x (id x)) (compl' x x (id x) x (id x) (id x) a)
+
+# but
+
+# X
+# | x -> x
+# | id x -> _
+# | _ -> _

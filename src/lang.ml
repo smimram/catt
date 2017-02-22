@@ -91,7 +91,7 @@ let rec to_string ?(pa=false) e =
 (** String representation of a meta-variable. *)
 and string_of_evar ?(pa=false) = function
   | ENone(n,t) ->
-     "?"^string_of_int n
+     if !show_instances then "?"^string_of_int n else "_"
      (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
   | ESome x -> to_string ~pa x
      (* "[" ^ to_string false x ^ "]" *)
