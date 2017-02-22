@@ -3,8 +3,8 @@
 (defvar catt-font-lock-keywords
  '(
    ("#.*" . 'font-lock-comment-face)
-   ("\\<\\(let\\|check\\|set\\)\\>\\|:\\|=" . font-lock-keyword-face)
-   ("\\<\\(Hom\\)\\>\\|->" . font-lock-builtin-face)
+   ("\\<\\(let\\|check\\|set\\|coh\\|hyp\\|eval\\|env\\)\\>\\|:\\|=" . font-lock-keyword-face)
+   ("\\<\\(Hom\\|Type\\)\\>\\|->" . font-lock-builtin-face)
    ;; ("\\<\\(\\)\\>" . font-lock-constant-face)
    ("\\<let[ \t]+\\([^ (=]*\\)" 1 'font-lock-function-name-face)
   )
