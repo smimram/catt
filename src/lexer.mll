@@ -22,7 +22,7 @@ rule token = parse
   | "*" { OBJ }
   | "=" { EQ }
   | "_" { US }
-  | (['_''a'-'z''A'-'Z'](['a'-'z''A'-'Z''0'-'9''_']|'-'['a'-'z''A'-'Z''0'-'9''_'])*['\'']* as str) { IDENT str }
+  | (['_''a'-'z''A'-'Z']['-''+''a'-'z''A'-'Z''0'-'9''_']*['\'''-''+''!']* as str) { IDENT str }
   | space+ { token lexbuf }
   | "#"[^'\n']* { token lexbuf }
   | '"'([^'"']* as s)'"' { STRING s }
