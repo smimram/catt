@@ -30,6 +30,7 @@ textarea {
     background-color: black;
     width: 100%;
     font-size: 11pt;
+    font-weight: bold;
 }
 
 pre {
