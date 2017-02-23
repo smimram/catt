@@ -738,7 +738,16 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
      let mv = List.filter (fun x -> match !x with ENone (n,t) -> (unevar t).desc <> HomType | ESome _ -> assert false) mv in
      if not !unsafe_evars && mv <> [] then
        (
-         let mv = String.concat ", " (List.map string_of_evarref mv) in
+         let s x = string_of_evarref x in
+         (* let s x = *)
+           (* let t = *)
+             (* match !x with *)
+             (* | ENone (_,t) -> t *)
+             (* | _ -> assert false *)
+           (* in *)
+           (* string_of_evarref x ^ " : " ^ to_string t *)
+         (* in *)
+         let mv = String.concat ", " (List.map s mv) in
          error ~pos:e.pos "expression %s has meta-variables %s" (to_string e) mv
        );
      let env = Env.add env x' ~value:e t in

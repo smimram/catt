@@ -67,6 +67,9 @@ let comp1 (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) = comp * x y f z g
 # 2-composition
 let comp2 (x : *) (y : *) (f : x -> y) (f' : x -> y) (a : f -> f') (f'' : x -> y) (b : f' -> f'') = comp (x -> y) f f' a f'' b
 </pre>
+For a more involved example, have a look at
+the <a href="https://raw.githubusercontent.com/smimram/catt/master/src/eh.catt">definition
+of the Heckmann-Hilton morphism</a>.
     </p>
 
     <h2>More details</h2>
