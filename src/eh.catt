@@ -278,6 +278,8 @@ let ich- a b = ich- _ _ _ _ _ a _ _ _ b
 let eh (X : Hom) (x : X)
     (a : id x -> id x)
     (b : id x -> id x)
+    :
+    (comp' a b -> comp' b a)
     =
     comp11
     (comp'
@@ -302,3 +304,15 @@ let eh (X : Hom) (x : X)
     (comp' (unitr' b) (unitl' a))
 
 check eh
+
+# let twist a b = comp (eh a b) (eh b a)
+
+# Hopf
+
+# let hopf (X : Hom) (x : X)
+    # (a : id (id x) -> id (id x))
+    # (b : id (id x) -> id (id x))
+    # :
+    # (comp (eh a b) (eh b a) -> id _)
+    # =
+    # ...

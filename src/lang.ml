@@ -31,7 +31,7 @@ type expr =
  (** Contents of an expression. *)
  and desc =
    | Var of var (** type variable *)
-   | EVar of (evar ref * subst) (** meta-variable (expression, substition) *)
+   | EVar of evar ref (** meta-variable *)
    | Type
    | HomType (** a type of hom set *)
    | Obj (** type of 0-cells *)
@@ -47,13 +47,15 @@ type expr =
    | PCons of ps * (var * expr) * (var * expr) (** extend *)
    | PDrop of ps (** drop *)
 
- (** A substitution. *)
- and subst = (var * expr) list
-
  (** A meta-variable. *)
  and evar =
    | ENone of int * expr (** unknown variable with given number and type *)
    | ESome of expr (** instantiated variable *)
+
+(*
+ (** A substitution. *)
+ and subst = (var * expr) list
+*)
 
 (** Create an expression from its contents. *)
 let mk ?pos desc =
@@ -74,7 +76,7 @@ let rec to_string ?(pa=false) e =
   let pa s = if pa then "("^s^")" else s in
   match e.desc with
   | Var x -> string_of_var x
-  | EVar (x,_) -> string_of_evar !x
+  | EVar x -> string_of_evar !x
   | Type -> "Type"
   | HomType -> "HomType"
   | Obj -> "*"
@@ -291,25 +293,25 @@ let fresh_inevar =
   let t =
     match t with
     | Some t -> t
-    | None -> mk (EVar (ref (ENone ((incr n; !n), mk Type)), []))
+    | None -> mk (EVar (ref (ENone ((incr n; !n), mk Type))))
   in
   ref (ENone ((incr n; !n), t))
 
 (** Generate a fresh meta-variable. *)
 let fresh_evar ?pos ?t () =
-  mk ?pos (EVar (fresh_inevar ?t (), []))
+  mk ?pos (EVar (fresh_inevar ?t ()))
 
 (** Whether a meta-variable occurs in a term. *)
 let occurs_evar v e =
   let x =
     match v.desc with
-    | EVar ({contents = ENone _} as x, _) -> x
+    | EVar ({contents = ENone _} as x) -> x
     | _ -> assert false
   in
   let rec aux e =
     match e.desc with
     | Var _ -> false
-    | EVar (x', _) -> x' == x
+    | EVar (x') -> x' == x
     | Type -> false
     | Abs (x,t,e) -> aux t || aux e
     | App (f,e) -> aux f || aux e
@@ -321,6 +323,7 @@ let occurs_evar v e =
   in
   aux e
 
+(*
 (** Apply a parallel substitution. *)
 let rec subst (s:subst) e =
   (* Printf.printf "subst: %s[%s]\n%!" (to_string e) (String.concat "," (List.map (fun (x,e) -> to_string e ^ "/" ^ x) s)); *)
@@ -366,11 +369,12 @@ let rec subst (s:subst) e =
        Pi (x',t,u)
   in
   mk ~pos:e.pos desc
+*)
 
 (** Ensure that linked evars do not occur at toplevel. *)
 let rec unevar e =
   match e.desc with
-  | EVar ({contents = ESome e}, s) -> unevar (subst s e)
+  | EVar {contents = ESome e} -> unevar e
   | _ -> e
 
 (** Free meta-variables. *)
@@ -378,7 +382,7 @@ let rec unevar e =
 their references. *)
 let rec free_evar e =
   match (unevar e).desc with
-  | EVar (x,_) -> [x]
+  | EVar x -> [x]
   | Var _ | Type | HomType | Obj -> []
   | Abs (_,t,e) -> List.diffq (free_evar e) (free_evar t)
   | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
@@ -395,7 +399,7 @@ let instantiate e =
       let e = unevar e in
       match e.desc with
       | Var _ -> e.desc
-      | EVar (x, s) ->
+      | EVar x ->
          let x' =
            try
              List.assq x !g
@@ -405,7 +409,7 @@ let instantiate e =
               g := (x,x') :: !g;
               x'
          in
-         EVar (x', s)
+         EVar x'
       | Type -> Type
       | Abs (x,t,e) -> Abs (x, aux t, aux e)
       | App (f,e) -> App (aux f, aux e)
@@ -426,7 +430,7 @@ let rec free_vars e =
   (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
   match (unevar e).desc with
   | Var x -> [x]
-  | EVar (x,s) ->
+  | EVar x ->
      if !parametric_schemes then [] else
        error ~pos:e.pos "don't know how to compute free variables in meta-variables"
   | Type | HomType | Obj -> []
@@ -471,7 +475,7 @@ end
 
 (** {2 Reduction and typing} *)
 
-(** Normalize a value. *)
+(** Compute the weak head normal form of a value. *)
 let rec normalize env e =
   (* Printf.printf "normalize: %s\n%!" (to_string e); *)
   let desc =
@@ -485,7 +489,7 @@ let rec normalize env e =
          with
          | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
        end
-    | EVar (x,s) as e -> (match !x with ENone _ -> e | ESome e -> assert false)
+    | EVar x as e -> (match !x with ENone _ -> e | ESome e -> assert false)
     | App (f, e) ->
        let f = normalize env f in
        let e = normalize env e in
@@ -527,8 +531,8 @@ let rec normalize env e =
 
 (** Type inference. *)
 let rec infer_type env e =
-  (* Printf.printf "env: %s\n" (String.concat " " (List.map fst env)); *)
-  (* Printf.printf "infer_type: %s\n%!" (to_string e); *)
+  Printf.printf "env: %s\n" (String.concat " " (List.map string_of_var (List.map fst env)));
+  Printf.printf "infer_type: %s\n%!" (to_string e);
   (* let infer_type env e = *)
   (* let t = infer_type env e in *)
   (* Printf.printf "infer_type: %s : %s\n%!" (to_string e) (to_string t); *)
@@ -632,13 +636,15 @@ let rec infer_type env e =
 
 (** Check that an expression has given type. *)
 and check_type env e t =
+  Printf.printf "check_type: %s : %s\n%!" (to_string e) (to_string t);
   let te = infer_type env e in
+  Printf.printf "checked: %s\n%!" (to_string e);
   if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t)
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
   let rec leq e1 e2 =
-    (* Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2); *)
+    Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2);
     let e1 = unevar e1 in
     let e2 = unevar e2 in
     match e1.desc, e2.desc with
@@ -694,7 +700,7 @@ and leq env e1 e2 =
 
 (** A command. *)
 type cmd =
-  | Decl of var * expr (** Declare a variable. *)
+  | Decl of var * expr * expr (** Declare a variable with given type and value. *)
   | Axiom of var * expr (** Declare an axiom of given type. *)
   | Check of expr (** Check the type of an expression. *)
   | Eval of expr (** Evaluate an expression. *)
@@ -703,7 +709,13 @@ type cmd =
 
 (** String representation of a command. *)
 let string_of_cmd = function
-  | Decl (x,e) -> Printf.sprintf "let %s = %s" (string_of_var x) (to_string e)
+  | Decl (x,t,e) ->
+     let t =
+       match (unevar t).desc with
+       | EVar _ -> ""
+       | _ -> " : " ^ to_string t
+     in
+     Printf.sprintf "let %s%s = %s" (string_of_var x) t (to_string e)
   | Axiom (x,e) -> Printf.sprintf "ax %s : %s" (string_of_var x) (to_string e)
   | Check e -> Printf.sprintf "check %s" (to_string e)
   | Eval e -> Printf.sprintf "eval %s" (to_string e)
@@ -726,9 +738,16 @@ end
 let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
   command "%s" (string_of_cmd cmd);
   match cmd with
-  | Decl (x,e) ->
+  | Decl (x,t,e) ->
+     Printf.printf "decl t: %s\n%!" (to_string t);
+     let t = subst s t in
+     Printf.printf "decl t: %s\n%!" (to_string t);
+     check_type env t (mk Type);
+     Printf.printf "decl e: %s\n%!" (to_string e);
      let e = subst s e in
-     let t = infer_type env e in
+     Printf.printf "decl e: %s\n%!" (to_string e);
+     (* let t = infer_type env e in *)
+     check_type env e t;
      (* let e = normalize env e in *)
      (* let t = infer_type env e in *)
      let x' = fresh_var x in

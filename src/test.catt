@@ -1,3 +1,12 @@
+let id (X : Hom) = coh "" (x : X) : (x -> x)
+set exit = a
+let id (x : _) = id _ x
+
+let eh (x : *) (a : id x -> id x) = _
+
+
+
+
 let comp (X : Hom) = coh "comp"
     (x : X)
     (y : X) (f : x -> y)
@@ -126,8 +135,8 @@ let comp23 a F = comp23 _ _ _ _ a _ _ _ F
 
 let comp3_1 F G = comp (comp32 F _) (comp23 _ G)
 
-let eh1 (x : *) (a : id x -> id x) (b : id x -> id x) =
-    comp3_1 (unit21r' a) (unit12l' b)
+# let eh1 (x : *) (a : id x -> id x) (b : id x -> id x) =
+    # comp3_1 (unit21r' a) (unit12l' b)
 
 # let eh2 (a : id -> id) (b : id -> id) =
     # comp23 () (ich2 a b)
