@@ -4,6 +4,12 @@ module Pos = struct
 
   let dummy = Lexing.dummy_pos, Lexing.dummy_pos
 
+  let union (p1,p2) (q1,q2) =
+    assert (p1.Lexing.pos_fname = q1.Lexing.pos_fname);
+    let r1 = if p1.Lexing.pos_cnum <= q1.Lexing.pos_cnum then p1 else q1 in
+    let r2 = if p2.Lexing.pos_cnum >= q2.Lexing.pos_cnum then p2 else q2 in
+    r1,r2
+
   (** String representation of a position. *)
   let to_string ((p1,p2):t) =
     let l1 = p1.Lexing.pos_lnum in

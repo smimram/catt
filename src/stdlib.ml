@@ -84,3 +84,10 @@ module Option = struct
     | Some x -> x
     | None -> x
 end
+
+module String = struct
+  include String
+
+  let concat_map s f l =
+    concat s (List.map f l)
+end
