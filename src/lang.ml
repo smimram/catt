@@ -116,6 +116,8 @@ module PS = struct
   (** String representation. *)
   let to_string = string_of_ps
 
+  exception Invalid
+
   (** Dangling variable. *)
   let rec marker ps =
     (* Printf.printf "marker: %s\n%!" (to_string ps); *)
@@ -138,7 +140,7 @@ module PS = struct
             aux ps
           in
           y,t
-       | _ -> assert false
+       | _ -> raise Invalid
 
   (** Free variables. *)
   let rec free_vars = function
@@ -159,22 +161,27 @@ module PS = struct
     let rec aux ps = function
       | (y,ty)::(f,tf)::l ->
          begin
-           match tf.desc with
-           | Arr (_, {desc = Var fx}, {desc = Var fy}) ->
-              (* Printf.printf "check: %s:?->%s\n%!" (string_of_var f) (string_of_var y); *)
-              if (y <> fy) then error ~pos:tf.pos "not a pasting scheme (following types do not match)";
-              let x,tx = marker ps in
-              if x = fx then
-                let fvps = free_vars ps in
-                assert (not (List.mem f fvps));
-                assert (not (List.mem y fvps));
-                let ps = PCons (ps,(y,ty),(f,tf)) in
-                aux ps l
-              else
-                aux (PDrop ps) ((y,ty)::(f,tf)::l)
-           | _ -> error ~pos:tf.pos "not a pasting scheme (types do not match)"
+           try
+             match tf.desc with
+             | Arr (_, {desc = Var fx}, {desc = Var fy}) ->
+                (* Printf.printf "check: %s:?->%s\n%!" (string_of_var f) (string_of_var y); *)
+                if (y <> fy) then error ~pos:tf.pos "not a pasting scheme (following types do not match)";
+                let x,tx = marker ps in
+                if x = fx then
+                  let fvps = free_vars ps in
+                  assert (not (List.mem f fvps));
+                  assert (not (List.mem y fvps));
+                  let ps = PCons (ps,(y,ty),(f,tf)) in
+                  aux ps l
+                else
+                  aux (PDrop ps) ((y,ty)::(f,tf)::l)
+             | _ -> error ~pos:tf.pos "not a pasting scheme (types do not match)"
+           with
+           | Invalid ->
+              (* TODO: better position *)
+              error ~pos:tf.pos "not a pasting scheme"
          end
-      | [_] -> error "not a pasting scheme (invalid parity)"
+      | [x,tx] -> error ~pos:tx.pos "not a pasting scheme (invalid parity)"
       | [] -> ps
     in
     aux (PNil(x0,t0)) l
