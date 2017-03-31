@@ -88,7 +88,7 @@ let rec to_string ?(pa=false) e =
   | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
   | Abs (x,t,e) -> pa (Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e))
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
-  | Clos (s,e) -> Printf.sprintf "[%s]" (to_string false e)
+  | Clos (s,e) -> Printf.sprintf "%s[%s]" (to_string true e) (string_of_subst s)
 
 (** String representation of a meta-variable. *)
 and string_of_evar ?(pa=false) = function
@@ -103,6 +103,10 @@ and string_of_ps = function
   | PNil (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string t)
   | PCons (ps,(x,t),(y,u)) -> Printf.sprintf "%s (%s : %s) (%s : %s)" (string_of_ps ps) (string_of_var x) (to_string t) (string_of_var y) (to_string u)
   | PDrop ps -> string_of_ps ps ^ " ! "
+
+(** String representation of a substitution. *)
+and string_of_subst s =
+  String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s<-%s" (string_of_var x) (to_string e)) s
 
 let string_of_evarref x = string_of_evar !x
 
@@ -328,8 +332,7 @@ let occurs_evar v e =
     | Arr (t,f,g) -> aux t || aux f || aux g
     | Coh (_,ps,e) -> PS.exists (fun (x,t) -> aux t) ps || aux e
     | Clos (s,e) ->
-       (* List.exists (fun (x,e) -> aux e) s || aux e *)
-       assert false
+       List.exists (fun (x,e) -> aux e) s || aux e
   in
   aux e
 
@@ -408,51 +411,51 @@ let rec free_vars e =
   | Coh (c,ps,t) -> PS.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
   | Clos _ -> assert false
 
-(*
-(** Typing environments. *)
 module Env = struct
-  (** A typing environment assign to each variable, its value (when known, which
-  should be in normal form) and its type. *)
-  type t = (var * (expr option * expr)) list
+  type t = subst
 
-  (** String representation. *)
-  let to_string (env:t) =
-    let f (x, (e, t)) =
-      let x = string_of_var x in
-      match e with
-      | Some e ->
-         let pad = String.make (String.length x) ' ' in
-         Printf.sprintf "%s = %s\n%s : %s\n" x (to_string e) pad (to_string t)
-      | None ->
-         Printf.sprintf "%s : %s\n" x (to_string t)
-    in
-    String.concat "\n" (List.map f (List.rev env))
-
-  (** Empty environment. *)
   let empty : t = []
 
-  (** Type of an expression in an environment. *)
-  let typ (env:t) x = snd (List.assoc x env)
+  let get (env:t) x = List.assoc x env
 
-  (** Value of an expression in an environment. *)
-  let value (env:t) x = fst (List.assoc x env)
+  let set (env:t) x e = (x,e)::env
 
-  let add (env:t) x ?value t : t = (x,(value,t))::env
+  let append env1 env2 = env1@env2
 
-  let add_ps env ps = List.fold_left (fun env (x,t) -> add env x t) env ps
+  let to_string env =
+    String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s=%s" (string_of_var x) (to_string e)) env
 end
-*)
+
+module TEnv = struct
+  type t = subst
+
+  let empty : t = []
+
+  let get (env:t) x = List.assoc x env
+
+  let set (env:t) x e = (x,e)::env
+
+  let to_string env =
+    String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s:%s" (string_of_var x) (string_of_expr e)) env
+end
 
 (** {2 Reduction and typing} *)
 
 (** Create a closure. *)
 let closure s e =
-  if s = [] then e else mk ~pos:e.pos (Clos (s,e))
+  let simple e =
+    match e.desc with
+    | Type | Obj | HomType -> true
+    | _ -> false
+  in
+  if s = [] || simple e then e else mk ~pos:e.pos (Clos (s,e))
 
 (** Remove top-level closure. *)
-let unclosure e =
+let rec unclosure e =
   match (unevar e).desc with
-  | Clos (s,e) -> s,e
+  | Clos (s,e) ->
+     let s',e = unclosure e in
+     Env.append s' s,e
   | _ -> [],e
 
 (** Compute the weak head normal form of a value. *)
@@ -477,7 +480,7 @@ let rec normalize env e =
        begin
          match f.desc with
          | Abs (x,t,f) ->
-            let env = (x,e)::env in
+            let env = Env.set env x e in
             closure env f
          | _ ->
             closure env (mk ~pos:e.pos (App (f, e)))
@@ -499,8 +502,9 @@ let rec normalize env e =
 
 (** Type inference. *)
 let rec infer_type env tenv e =
-  (* Printf.printf "env: %s\n" (String.concat " " (List.map string_of_var (List.map fst env))); *)
-  (* Printf.printf "infer_type: %s\n%!" (to_string e); *)
+  Printf.printf "env: %s\n" (Env.to_string env);
+  Printf.printf "tenv: %s\n" (TEnv.to_string tenv);
+  Printf.printf "infer_type: %s\n%!" (to_string e);
   (* let infer_type env e = *)
   (* let t = infer_type env e in *)
   (* Printf.printf "infer_type: %s : %s\n%!" (to_string e) (to_string t); *)
@@ -519,19 +523,16 @@ let rec infer_type env tenv e =
   | Type -> mk Type
   | Pi (x,t,u) ->
      check_type env tenv t (mk Type);
-     let x' = mk (Var (fresh_var x)) in
-     let env = (x,x')::env in
-     let tenv = (x,closure env t)::tenv in
+     let env = Env.set env x (mk (Var x)) in
+     let tenv = TEnv.set tenv x (closure env t) in
      check_type env tenv u (mk Type);
      mk Type
   | Abs (x,t,e) ->
-     (* TODO: check this *)
      check_type env tenv t (mk Type);
-     let x' = fresh_var x in
-     let env = (x,mk (Var x'))::env in
-     let tenv = (x,closure env t)::tenv in
+     let env = Env.set env x (mk (Var x)) in
+     let tenv = TEnv.set tenv x (closure env t) in
      let u = infer_type env tenv e in
-     mk (Pi (x',t,u))
+     mk (Pi (x,t,u))
   | App (f,e) ->
      let t = infer_type env tenv f in
      let t,u =
@@ -546,20 +547,22 @@ let rec infer_type env tenv e =
   | HomType -> mk Type
   | Obj -> mk HomType
   | Coh (c,ps,t) ->
-     (* Normalize types in order to reveal hidden variables. *)
-     (* TODO: we should refresh variable names *)
+     let env = ref env in
      let tenv = ref tenv in
      let ps =
        PS.map
          (fun (x,t) ->
-           let t = normalize env t in
-           check_type env !tenv t (mk HomType);
-           tenv := (x,t) :: !tenv;
+           (* Normalize types in order to reveal hidden variables. *)
+           (* let t = normalize !env t in *)
+           check_type !env !tenv t (mk HomType);
+           env := Env.set !env x (mk (Var x));
+           tenv := TEnv.set !tenv x t;
            x,t
          ) ps
      in
+     let env = !env in
      let tenv = !tenv in
-     let t = normalize env t in
+     (* let t = normalize env t in *)
      check_type env tenv t (mk HomType);
      (* Printf.printf "COH: %s\n%!" (to_string (mk (Coh(c,ps,t)))); *)
      (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
@@ -616,25 +619,33 @@ let rec infer_type env tenv e =
 
 (** Check that an expression has given type. *)
 and check_type env tenv e t =
-  Printf.printf "check_type: %s : %s\n%!" (to_string e) (to_string t);
+  (* Printf.printf "check_type: %s : %s\n%!" (to_string e) (to_string t); *)
   let te = infer_type env tenv e in
-  Printf.printf "checked: %s\n%!" (to_string e);
+  (* Printf.printf "checked: %s\n%!" (to_string e); *)
+  (* Printf.printf "do we have %s of type %s\n%!" (to_string e) (to_string t); *)
+  (* Printf.printf "env: %s\n%!" (Env.to_string env); *)
+  (* Printf.printf "tenv: %s\n%!" (TEnv.to_string tenv); *)
   if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t)
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
   let rec leq e1 e2 =
-    Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2);
+    (* Printf.printf "env: %s\n" (Env.to_string env); *)
+    (* Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2); *)
     let s1,e1 = unclosure e1 in
     let s2,e2 = unclosure e2 in
-    match e1.desc, e2.desc with
+    match (unevar e1).desc, (unevar e2).desc with
     (* We could use unclose, but this is safer. *)
     | Pi (x1,t1,u1), Pi (x2,t2,u2) ->
        let t1 = normalize s1 t1 in
        let t2 = normalize s2 t2 in
        let x' = mk (Var (fresh_var x1)) in
+       (* Printf.printf "u1: %s\n%!" (to_string u1); *)
+       (* Printf.printf "u2: %s\n%!" (to_string u2); *)
        let u1 = normalize ((x1,x')::s1) u1 in
        let u2 = normalize ((x2,x')::s2) u2 in
+       (* Printf.printf "u1: %s\n%!" (to_string u1); *)
+       (* Printf.printf "u2: %s\n%!" (to_string u2); *)
        leq t2 t1 && leq u1 u2
     | Abs (x1,t1,e1), Abs (x2,t2,e2) ->
        let t1 = normalize s1 t1 in
@@ -670,14 +681,18 @@ and leq env e1 e2 =
        let t1 = normalize !s1 t1 in
        let t2 = normalize !s2 t2 in
        ans && leq t1 t2
-    | Arr (t1,f1,g1), Arr (t2,f2,g2) -> leq t1 t2 && leq f1 f2 && leq g1 g2
+    | Arr (t1,f1,g1), Arr (t2,f2,g2) ->
+       assert (s1 = [] && s2 = []);
+       leq t1 t2 && leq f1 f2 && leq g1 g2
     | EVar x1, EVar x2 when x1 == x2 -> true
     | EVar ({contents = ENone (n,t)} as x), _ ->
+       let e2 = closure s2 e2 in
        if occurs_evar e1 e2 then false
        (* TODO: add tenv to be able to perform this check *)
        (* else if not (leq (infer_type env e2) t) then false *)
        else (x := ESome e2; leq e1 e2)
     | _, EVar({contents = ENone (n,t)} as x) ->
+       let e1 = closure s1 e1 in
        if occurs_evar e2 e1 then false
        (* TODO: add tenv to be able to perform this check *)
        (* else if not (leq (infer_type env e1) t) then false *)
@@ -723,7 +738,7 @@ let exec_cmd (env,tenv) cmd =
   match cmd with
   | Decl (x,t,e) ->
      Printf.printf "decl t: %s\n%!" (to_string t);
-     check_type env [] t (mk Type);
+     check_type env tenv t (mk Type);
      Printf.printf "decl e: %s\n%!" (to_string e);
      (* let t = infer_type env e in *)
      check_type env tenv e t;
@@ -747,8 +762,9 @@ let exec_cmd (env,tenv) cmd =
          let mv = String.concat ", " (List.map s mv) in
          error ~pos:e.pos "expression %s has meta-variables %s" (to_string e) mv
        );
-     let env = (x,e)::env in
-     let tenv = (x,t)::tenv in
+     let env = Env.set env x (closure env e) in
+     let tenv = TEnv.set tenv x (closure env t) in
+     Printf.printf "decl %s : %s\n%!" (to_string e) (to_string t);
      env,tenv
   | Axiom (x,t) ->
      check_type env tenv t (mk Type);
@@ -766,8 +782,8 @@ let exec_cmd (env,tenv) cmd =
      printf "    %s\n    = %s\n    : %s\n%!" (to_string e0) (to_string e) (to_string t);
      env,tenv
   | Env ->
-     print_endline ("\n" ^ String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s=%s" (string_of_var x) (to_string e)) env);
-     print_endline ("\n" ^ String.concat_map " , " (fun (x,t) -> Printf.sprintf "%s:%s" (string_of_var x) (to_string t)) tenv);
+     print_endline ("\n" ^ Env.to_string env);
+     print_endline ("\n" ^ TEnv.to_string tenv);
      env,tenv
   | Set (o,v) ->
      let bool () =

@@ -1,5 +1,5 @@
 let id (X : Hom) = coh "" (x : X) : (x -> x)
-set exit = a
+
 let id (x : _) = id _ x
 
 let eh (x : *) (a : id x -> id x) = _
