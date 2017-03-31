@@ -766,8 +766,9 @@ let exec_cmd (env,tenv) cmd =
      printf "    %s\n    = %s\n    : %s\n%!" (to_string e0) (to_string e) (to_string t);
      env,tenv
   | Env ->
-     print_endline ("\n" ^ String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s=%s" x (to_string e)) env);
-     env
+     print_endline ("\n" ^ String.concat_map " , " (fun (x,e) -> Printf.sprintf "%s=%s" (string_of_var x) (to_string e)) env);
+     print_endline ("\n" ^ String.concat_map " , " (fun (x,t) -> Printf.sprintf "%s:%s" (string_of_var x) (to_string t)) tenv);
+     env,tenv
   | Set (o,v) ->
      let bool () =
        if v = "true" then true
@@ -785,7 +786,7 @@ let exec_cmd (env,tenv) cmd =
        exit 0
      else
        error "unknown option %s" o;
-     env,s
+     env,tenv
 
 (** Execute a program. *)
 let exec envs prog =
