@@ -12,6 +12,7 @@ rule token = parse
   | "check" { CHECK }
   | "eval" { EVAL }
   | "env" { ENV }
+  | "in" { IN }
   | "Type" { TYPE }
   | "Hom" { HOMTYPE }
   | "(" { LPAR }

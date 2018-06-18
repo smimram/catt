@@ -1,304 +1,161 @@
-## The Eckmann-Hilton morphism
+# identity
+coh id (x : *) : x -> x
+let id2 (x : *) = id (id x)
 
-set show-instances = false
+# composition
+coh comp (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) : x -> z
+let comp1 (x1 : *) (x2 : *) (f1 : x1 -> x2) = f1
+let comp2 (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) = comp f g
+coh comp3 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) : x1 -> x4
+coh comp4 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) :
+x1 -> x5
+coh comp5 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6): x1 -> x6
+coh comp6 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7): x1 -> x7
+coh comp7 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) (x8 : *) (f7 : x7 -> x8):
+x1 -> x8
+coh comp8 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) (x8 : *) (f7 : x7 -> x8) (x9 : *) (f8 : x8 -> x9):
+x1 -> x9
+coh comp9 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) (x8 : *) (f7 : x7 -> x8) (x9 : *) (f8 : x8 -> x9) (x10 : *) (f9 : x9 -> x10):
+x1 -> x10
+coh comp10 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) (x8 : *) (f7 : x7 -> x8) (x9 : *) (f8 : x8 -> x9) (x10 : *) (f9 : x9 -> x10) (x11 : *) (f10 : x10 -> x11):
+x1 -> x11
 
-# Identity
+# associativities
+coh comp2+2 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) :
+comp (comp f1 f2) (comp f3 f4) -> comp4 f1 f2 f3 f4
+coh comp1+2+1- (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) : comp4 f1 f2 f3 f4 -> comp3 f1 (comp f2 f3) f4
 
-let id (X : Hom) = coh "id" (x : X) : (x -> x)
-let id (x : _) = id _ x
+coh comp2+1+2 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) : comp3 (comp f1 f2) f3 (comp f4 f5) -> comp5 f1 f2 f3 f4 f5
+coh comp1+3+1- (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) : comp5 f1 f2 f3 f4 f5 -> comp3 f1 (comp3 f2 f3 f4) f5
 
-# Composition
+coh comp3+3 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) :
+comp (comp3 f1 f2 f3) (comp3 f4 f5 f6) -> comp6 f1 f2 f3 f4 f5 f6
+coh comp2+2+2 (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) :
+comp3 (comp f1 f2) (comp f3 f4) (comp f5 f6) -> comp6 f1 f2 f3 f4 f5 f6
+coh comp2+2+2- (x1 : *) (x2 : *) (f1 : x1 -> x2) (x3 : *) (f2 : x2 -> x3) (x4 : *) (f3 : x3 -> x4) (x5 : *) (f4 : x4 -> x5) (x6 : *) (f5 : x5 -> x6) (x7 : *) (f6 : x6 -> x7) :
+comp6 f1 f2 f3 f4 f5 f6 -> comp3 (comp f1 f2) (comp f3 f4) (comp f5 f6)
 
-let comp (X : Hom) = coh "comp"
-    (x : X)
-    (y : X) (f : x -> y)
-    (z : X) (g : y -> z)
-    :
-    (x -> z)
-let comp f g = comp _ _ _ f _ g
+# composition in lower codimension
+coh comp-2 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g1 : y -> z) (g2: y -> z) (b : g1 -> g2) : comp f1 g1 -> comp f2 g2
 
-let comp1 f = f
-let comp2 = comp
-let comp3 f3 f2 f1 = comp f3 (comp f2 f1)
-let comp4 f4 f3 f2 f1 = comp f4 (comp3 f3 f2 f1)
-let comp5 f5 f4 f3 f2 f1 = comp f5 (comp4 f4 f3 f2 f1)
-let comp6 f6 f5 f4 f3 f2 f1 = comp f6 (comp5 f5 f4 f3 f2 f1)
-let comp7 f7 f6 f5 f4 f3 f2 f1 = comp f7 (comp6 f6 f5 f4 f3 f2 f1)
-let comp8 f8 f7 f6 f5 f4 f3 f2 f1 = comp f8 (comp7 f7 f6 f5 f4 f3 f2 f1)
-let comp9 f9 f8 f7 f6 f5 f4 f3 f2 f1 = comp f9 (comp8 f8 f7 f6 f5 f4 f3 f2 f1)
-let comp10 f10 f9 f8 f7 f6 f5 f4 f3 f2 f1 = comp f10 (comp9 f9 f8 f7 f6 f5 f4 f3 f2 f1)
-let comp11 f11 f10 f9 f8 f7 f6 f5 f4 f3 f2 f1 = comp f11 (comp10 f10 f9 f8 f7 f6 f5 f4 f3 f2 f1)
+coh comp3-2 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g1 : y -> z) (g2: y -> z) (b : g1 -> g2) (w : *) (h1 : z -> w) (h2 : z -> w) (c : h1 -> h2) : comp3 f1 g1 h1 -> comp3 f2 g2 h2
 
-let compl' (X : Hom) = coh "compl'"
-    (x : X)
-    (y : X) (f : x -> y)
-    (z : X) (g : y -> z)
-    (g' : y -> z) (a : g -> g')
-    :
-    (comp f g -> comp f g')
-let compl' f a = compl' _ _ _ f _ _ _ a
+coh comp-3 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g1 : y -> z) (g2 : y -> z) (b1 : g1 -> g2) (b2 : g1 -> g2) (B : b1 -> b2) : comp-2 a1 b1 -> comp-2 a2 b2
 
-let compl2' f g a = compl' f (compl' g a)
+coh comp3-3 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g1 : y -> z) (g2: y -> z) (b1 : g1 -> g2) (b2 : g1 -> g2) (B : b1 -> b2) (w : *) (h1 : z -> w) (h2 : z -> w) (c1 : h1 -> h2) (c2 : h1 -> h2) (C : c1 -> c2) : comp3-2 a1 b1 c1 -> comp3-2 a2 b2 c2
 
-let compr' (X : Hom) = coh "compr'"
-    (x : X)
-    (y : X) (f : x -> y)
-    (f' : x -> y) (a : f -> f')
-    (z : X) (g : y -> z)
-    :
-    (comp f g -> comp f' g)
-let compr' a g = compr' _ _ _ _ _ a _ g
+# whiskering
+# coh compl (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a : g1 -> g2) : comp f g1 -> comp f g2
+let compl (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a : g1 -> g2) = comp-2 (id f) a
 
-let complr' f a g = compl' f (compr' a g)
-let compl2r' f1 f2 a g = compl2' f1 f2 (compr' a g)
+# coh compr (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g : y -> z) : comp f1 g -> comp f2 g
+let compr (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g : y -> z) = comp-2 a (id g)
 
-let comp' a b = comp (compr' a _) (compl' _ b)
-let comp2' = comp'
-let comp3' a b c = comp' a (comp' b c)
+# coh complr (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a : g1 -> g2) (w : *) (h : z -> w) : comp3 f g1 h -> comp3 f g2 h
+let complr (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a : g1 -> g2) (w : *) (h : z -> w) = comp3-2 (id f) a (id h)
 
-let compl'' (X : Hom) = coh "compl''"
-    (x : X)
-    (y : X) (f : x -> y)
-    (z : X) (g : y -> z)
-    (g' : y -> z) (a : g -> g')
-    (b : g -> g') (F : a -> b)
-    :
-    (compl' f a -> compl' f b)
-let compl'' f F = compl'' _ _ _ f _ _ _ _ _ F
+# coh compl-2 (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a1 : g1 -> g2) (a2 : g1 -> g2) (A : a1 -> a2) : compl f a1 -> compl f a2
+let compl-2 (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a1 : g1 -> g2) (a2 : g1 -> g2) (A : a1 -> a2) = comp-3 (id (id f)) A
 
-let compr'' (X : Hom) = coh "compr''"
-    (x : X)
-    (y : X) (f : x -> y)
-    (f' : x -> y) (a : f -> f')
-    (b : f -> f') (F : a -> b)
-    (z : X) (g : y -> z)
-    :
-    (compr' a g -> compr' b g)
-let compr'' F g = compr'' _ _ _ _ _ _ _ F _ g
+# coh compr-2 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g : y -> z) : compr a1 g -> compr a2 g
+let compr-2 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g : y -> z) = comp-3 A (id (id g))
 
-let comp'' F G = comp' (compl'' _ F) (compr'' F _)
+# coh complr-2 (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a1 : g1 -> g2) (a2 : g1 -> g2) (A : a1 -> a2) (w : *) (h : z -> w) : complr f a1 h -> complr f a2 h
+let complr-2 (x : *) (y : *) (f : x -> y) (z : *) (g1 : y -> z) (g2 : y -> z) (a1 : g1 -> g2) (a2 : g1 -> g2) (A : a1 -> a2) (w : *) (h : z -> w) = comp3-3 (id (id f)) A (id (id h))
 
-# Associativity
+# interchange
+coh ich (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g1 : y -> z) (g2 : y -> z) (b : g1 -> g2) : comp (compr a g1) (compl f2 b) -> comp-2 a b
 
-let assoc (X : Hom) = coh "assoc"
-    (x : X)
-    (y : X) (f : x -> y)
-    (z : X) (g : y -> z)
-    (w : X) (h : z -> w)
-    :
-    (comp (comp f g) h -> comp f (comp g h))
-let assoc f g h = assoc _ _ _ f _ g _ h
+coh ich- (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g1 : y -> z) (g2 : y -> z) (b : g1 -> g2) : comp-2 a b -> comp (compr a g1) (compl f2 b)
 
-let assoc1 f = f
-let assoc2 = assoc
-let assoc3 f3 f2 f1 g =
-    comp
-    (assoc f3 (comp f2 f1) g)
-    (compl' f3 (assoc f2 f1 g))
-let assoc4 f4 f3 f2 f1 g =
-    comp
-    (assoc f4 (comp3 f3 f2 f1) g)
-    (compl' f4 (assoc3 f3 f2 f1 g))
+coh ich3 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g1 : y -> z) (g2 : y -> z) (b1 : g1 -> g2) (b2 : g1 -> g2) (B : b1 -> b2) : comp (comp-3 A (id b1)) (comp-3 (id a2) B) -> comp-3 A B
 
-let assoc- (X : Hom) = coh "assoc"
-    (x : X)
-    (y : X) (f : x -> y)
-    (z : X) (g : y -> z)
-    (w : X) (h : z -> w)
-    :
-    (comp f (comp g h) -> comp (comp f g) h)
-let assoc- f g h = assoc- _ _ _ f _ g _ h
+coh ich3- (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g1 : y -> z) (g2 : y -> z) (b1 : g1 -> g2) (b2 : g1 -> g2) (B : b1 -> b2) : comp-3 A B -> comp (comp-3 A (id b1)) (comp-3 (id a2) B)
 
-let assoc3- f3 f2 f1 g =
-    comp
-    (compl' f3 (assoc- f2 f1 g))
-    (assoc- f3 _ g)
-    # (assoc- f3 (comp f2 f1) g)
+coh ich3-3- (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a1 : f1 -> f2) (a2 : f1 -> f2) (A : a1 -> a2) (z : *) (g1 : y -> z) (g2 : y -> z) (b1 : g1 -> g2) (b2 : g1 -> g2) (B : b1 -> b2) : comp-3 A B -> comp3 (ich- a1 b1) (comp-2 (compr-2 A g1) (compl-2 f2 B)) (ich a2 b2)
 
-# Units
+coh ich1+2+1 (x : *) (y : *) (f1 : x -> y) (f2 : x -> y) (a : f1 -> f2) (z : *) (g1 : y -> z) (g2 : y -> z) (b1 : g1 -> g2) (g3 : y -> z) (b2 : g2 -> g3) (w : *) (h1 : z -> w) (h2 : z -> w) (c : h1 -> h2) : comp3 (complr f1 b1 h1) (comp3-2 a (id g2) c) (complr f2 b2 h2) -> comp3-2 a (comp b1 b2) c
 
-let unitl (X : Hom) = coh "unitl"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (comp (id x) f -> f)
-let unitl f = unitl _ _ _ f
+# coherence for identities
+coh idl (x : *) (y : *) (f : x -> y) : comp (id x) f -> f
 
-let unitl- (X : Hom) = coh "unitl-"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (f -> comp (id x) f)
-let unitl- f = unitl- _ _ _ f
+coh idl- (x : *) (y : *) (f : x -> y) : f -> comp (id x) f
 
-let unitr (X : Hom) = coh "unitr"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (comp f (id y) -> f)
-let unitr f = unitr _ _ _ f
+coh idr (x : *) (y : *) (f : x -> y) : comp f (id y) -> f
 
-let unitr- (X : Hom) = coh "unitr-"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (f -> comp f (id y))
-let unitr- f = unitr- _ _ _ f
+coh idr- (x : *) (y : *) (f : x -> y) : f -> comp f (id y)
 
-let unitlr (X : Hom) = coh "unitlr"
-    (x : X)
-    :
-    (unitl (id x) -> unitr (id x))
-let unitlr x = unitlr _ x
+coh idlr (x : *) : idl (id x) -> idr (id x)
 
-let unitrl (X : Hom) = coh "unitrl"
-    (x : X)
-    :
-    (unitr (id x) -> unitl (id x))
-let unitrl x = unitrl _ x
+coh idrl (x : *) : idr (id x) -> idl (id x)
 
-let unitlr- (X : Hom) = coh "unitlr-"
-    (x : X)
-    :
-    (unitl- (id x) -> unitr- (id x))
-let unitlr- x = unitlr- _ x
+coh idlr- (x : *) : idl- (id x) -> idr- (id x)
 
-let unitrl- (X : Hom) = coh "unitrl-"
-    (x : X)
-    :
-    (unitr- (id x) -> unitl- (id x))
-let unitrl- x = unitrl- _ x
+coh idrl- (x : *) : idr- (id x) -> idl- (id x)
 
-let unitr+- (X : Hom) = coh "unitr+-"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (comp (unitr f) (unitr- f) -> id (comp f (id y)))
-let unitr+- f = unitr+- _ _ _ f
+coh idm (x : *) (y : *) (f : x -> y) (z : *) (g : y -> z) : comp3 f (id y) g -> comp f g
 
-let unitr+-- (X : Hom) = coh "unitr+--"
-    (x : X)
-    (y : X) (f : x -> y)
-    :
-    (id (comp f (id y)) -> comp (unitr f) (unitr- f))
-let unitr+-- f = unitr+-- _ _ _ f
+# coh idl-r (x : *) : comp (idl (id x)) (idr- (id x)) -> id (comp (id x) (id x))
 
-let unitl' (X : Hom) = coh "unitl'"
-    (x : X)
-    (y : X) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    :
-    (
-    comp3
-    (unitl- f)
-    (compl' (id x) a)
-    (unitl g)
-    ->
-    a
-    )
-let unitl' a = unitl' _ _ _ _ _ a
+coh idr-l (x : *) : comp (idr (id x)) (idl- (id x)) -> id (comp (id x) (id x))
 
-let unitl'- (X : Hom) = coh "unitl'-"
-    (x : X)
-    (y : X) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    :
-    (
-    a
-    ->
-    comp3
-    (unitl- f)
-    (compl' (id x) a)
-    (unitl g)
-    )
-let unitl'- a = unitl'- _ _ _ _ _ a
+coh id2l (x : *) (y : *) (f : x -> y) (g : x -> y) (a : f -> g) : comp3 (idl- f) (compl (id x) a) (idl g) -> a
 
-let unitr' (X : Hom) = coh "unitr'-"
-    (x : X)
-    (y : X) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    :
-    (
-    comp3
-    (unitr- f)
-    (compr' a (id y))
-    (unitr g)
-    ->
-    a
-    )
-let unitr' a = unitr' _ _ _ _ _ a
+coh id2l- (x : *) (y : *) (f : x -> y) (g : x -> y) (a : f -> g) : a -> comp3 (idl- f) (compl (id x) a) (idl g)
 
-let unitr'- (X : Hom) = coh "unitr'-"
-    (x : X)
-    (y : X) (f : x -> y)
-    (g : x -> y) (a : f -> g)
-    :
-    (
-    a
-    ->
-    comp3
-    (unitr- f)
-    (compr' a (id y))
-    (unitr g)
-    )
-let unitr'- a = unitr'- _ _ _ _ _ a
+coh id2r (x : *) (y : *) (f : x -> y) (g : x -> y) (a : f -> g) : comp3 (idr- f) (compr a (id y)) (idr g) -> a
 
-# Exchange law
+coh id2r- (x : *) (y : *) (f : x -> y) (g : x -> y) (a : f -> g) : a -> comp3 (idr- f) (compr a (id y)) (idr g)
 
-let ich (X : Hom) = coh "ich"
-    (x : X)
-    (y : X) (f : x -> y)
-    (f' : x -> y) (a : f -> f')
-    (z : X) (g : y -> z)
-    (g' : y -> z) (b : g -> g')
-    :
-    (
-    comp (compl' f b) (compr' a g')
-    ->
-    comp (compr' a g) (compl' f' b)
-    )
-let ich a b = ich _ _ _ _ _ a _ _ _ b
+# coh id2l-r (x : *) : comp (id2l (id (id x))) (id2r- (id (id x))) -> comp3-2 (idlr- x) (id (comp-2 (id (id x)) (id (id x)))) (idlr x)
 
-let ich- (X : Hom) = coh "ich-"
-    (x : X)
-    (y : X) (f : x -> y)
-    (f' : x -> y) (a : f -> f')
-    (z : X) (g : y -> z)
-    (g' : y -> z) (b : g -> g')
-    :
-    (
-    comp (compr' a g) (compl' f' b)
-    ->
-    comp (compl' f b) (compr' a g')
-    )
-let ich- a b = ich- _ _ _ _ _ a _ _ _ b
+coh id2r-l (x : *) : comp (id2r (id (id x))) (id2l- (id (id x))) -> comp3-2 (idrl- x) (id (comp-2 (id (id x)) (id (id x)))) (idrl x)
 
-# Eckmann-Hilton
+coh id3l- (x : *) (y : *) (f : x -> y) (g : x -> y) (a1 : f -> g) (a2 : f -> g) (A : a1 -> a2) : A -> comp3 (id2l- a1) (complr (idl- f) (compl-2 (id x) A) (idl g)) (id2l a2)
 
-let eh (X : Hom) (x : X)
-    (a : id x -> id x)
-    (b : id x -> id x)
-    =
-    comp11
-    (comp'
-      (unitl'- a)
-      (unitr'- b)
-    )
-    (assoc3 _ _ _ _)
-    (compl2r' _ _ (unitlr x) _)
-    (compl2' _ _
-      (comp3
-        (assoc- _ _ _)
-        (comp' (unitr+- (id x)) (id _))
-        (unitl _)
-      )
-    )
-    (compl' _ (assoc- _ _ _))
-    (complr' _ (ich b a) _)
-    (complr' _ (compr' (comp (unitr- _) (compl' _ (unitr+-- _))) _) _)
-    (comp (complr' _ (assoc3 _ _ _ _) _) (compl' _ (assoc4 _ _ _ _ _)))
-    (comp' (unitlr- x) (compl' _ (compl' _ (comp' (unitrl- x) (compl' _ (unitrl x))))))
-    (assoc3- _ _ _ _)
-    (comp' (unitr' b) (unitl' a))
+coh id3r- (x : *) (y : *) (f : x -> y) (g : x -> y) (a1 : f -> g) (a2 : f -> g) (A : a1 -> a2) : A -> comp3 (id2r- a1) (complr (idr- f) (compr-2 A (id y)) (idr g)) (id2r a2)
 
-check eh
+# quarter of a rotation
+let rot (x : *) (a : id x -> id x) (b : id x -> id x) =
+  let ua- = idr- (id x) in
+  let ua = compr a (id x) in
+  let ua+ = idr (id x) in
+  let ub- = idl- (id x) in
+  let ub = compl (id x) b in
+  let ub+ = idl (id x) in
+  comp8
+    (comp-2 (id2r- a) (id2l- b))
+    (comp3+3 ua- ua ua+ ub- ub ub+)
+    (comp2+2+2- ua- ua ua+ ub- ub ub+)
+    (complr (comp ua- ua) (idr-l x) (comp ub ub+))
+    (idm (comp ua- ua) (comp ub ub+))
+    (comp2+2 ua- ua ub ub+)
+    (comp1+2+1- ua- ua ub ub+)
+    (complr ua- (ich a b) ub+)
+
+let rot (x : *) (A : id (id x) -> id (id x)) (B : id (id x) -> id (id x)) = rot A B
+
+let rot2 (x : *) (A : id (id x) -> id (id x)) (B : id (id x) -> id (id x)) =
+  let ua- = id2r- (id (id x)) in
+  let ua = complr (idr- (id x)) (compr-2 A (id x)) (idr (id x)) in
+  let ua+ = id2r (id (id x)) in
+  let ulr = comp3-2 (idrl- x) (id (comp-2 (id (id x)) (id (id x)))) (idrl x) in
+  let ub- = id2l- (id (id x)) in
+  let ub = complr (idl- (id x)) (compl-2 (id x) B) (idl (id x)) in
+  let ub+ = id2l (id (id x)) in
+  comp8
+    (comp-2 (id3r- A) (id3l- B))
+    (comp3+3 ua- ua ua+ ub- ub ub+)
+    (comp2+2+2- ua- ua ua+ ub- ub ub+)
+    (complr (comp ua- ua) (id2r-l x) (comp ub ub+))
+    (comp2+1+2 ua- ua ulr ub ub+)
+    (comp1+3+1- ua- ua ulr ub ub+)
+    (complr ua- (ich1+2+1 (idrl- x) (compr-2 A (id x)) (compl-2 (id x) B) (idrl x)) ub+)
+    (complr ua- (comp3-3 (id (idrl- x)) (ich3 A B) (id (idrl x))) ub+)
+
+let test (x : *) (A : id (id x) -> id (id x)) (B : id (id x) -> id (id x)) =
+  ich3-3- A B
+
+# let rot2' (x : *) (A : id (id x) -> id (id x)) (B : id (id x) -> id (id x)) =
+  # comp1
+    # (complr-2 (idr- (id x)) (ich3- A B) (idl (id x)))

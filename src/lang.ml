@@ -7,8 +7,6 @@ open Common
 
 (** Do we want the theory of groupoids? *)
 let groupoid = ref false
-(** Do we allow unsafe uses of meta-variables? *)
-let unsafe_evars = ref false
 (** Do we allow parametric pasting schemes? *)
 let parametric_schemes = ref true
 (** Do we show instance numbers in strings? *)
@@ -31,7 +29,6 @@ type expr =
  (** Contents of an expression. *)
  and desc =
    | Var of var (** type variable *)
-   | EVar of (evar ref * subst) (** meta-variable (expression, substition) *)
    | Type
    | HomType (** a type of hom set *)
    | Obj (** type of 0-cells *)
@@ -39,7 +36,8 @@ type expr =
    | Pi of var * expr * expr
    | Abs of var * expr * expr
    | App of expr * expr
-   | Coh of string * ps * expr (** coherence (name, source, target) *)
+   | Coh of string * ps * expr * int (** coherence (name, source, target, shifting) *)
+   | Daimon (** of any type... *)
 
  (** A pasting scheme. *)
  and ps =
@@ -49,11 +47,6 @@ type expr =
 
  (** A substitution. *)
  and subst = (var * expr) list
-
- (** A meta-variable. *)
- and evar =
-   | ENone of int * expr (** unknown variable with given number and type *)
-   | ESome of expr (** instantiated variable *)
 
 (** Create an expression from its contents. *)
 let mk ?pos desc =
@@ -70,41 +63,28 @@ let string_of_var = function
 (** String representation of an expression. *)
 let rec to_string ?(pa=false) e =
   let to_string pa e = to_string ~pa e in
-  let string_of_evar x = string_of_evar ~pa x in
   let pa s = if pa then "("^s^")" else s in
   match e.desc with
   | Var x -> string_of_var x
-  | EVar (x,_) -> string_of_evar !x
   | Type -> "Type"
   | HomType -> "HomType"
   | Obj -> "*"
   | Arr (t,f,g) -> pa (Printf.sprintf "%s | %s -> %s" (to_string false t) (to_string false f) (to_string false g))
-  | Coh (c,ps,t) ->
+  | Coh (c,ps,t,n) ->
      if c = "" then
-       Printf.sprintf "coh (%s => %s)" (string_of_ps ps) (to_string false t)
+       Printf.sprintf "coh%d (%s => %s)" n (string_of_ps ps) (to_string false t)
      else
        c
   | Pi (x,t,u) -> pa (Printf.sprintf "(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false u))
   | Abs (x,t,e) -> pa (Printf.sprintf "\\(%s : %s) => %s" (string_of_var x) (to_string false t) (to_string false e))
   | App (f,e) -> pa (to_string false f ^ " " ^ to_string true e)
-
-(** String representation of a meta-variable. *)
-and string_of_evar ?(pa=false) = function
-  | ENone(n,t) ->
-     if !show_instances then "?"^string_of_int n else "_"
-     (* Printf.sprintf "(?%d:%s)" n (to_string t) *)
-  | ESome x -> to_string ~pa x
-     (* "[" ^ to_string false x ^ "]" *)
+  | Daimon -> "†"
 
 (** String representation of a pasting scheme. *)
 and string_of_ps = function
   | PNil (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (to_string t)
   | PCons (ps,(x,t),(y,u)) -> Printf.sprintf "%s (%s : %s) (%s : %s)" (string_of_ps ps) (string_of_var x) (to_string t) (string_of_var y) (to_string u)
   | PDrop ps -> string_of_ps ps ^ " ! "
-
-let string_of_evarref x = string_of_evar !x
-
-let string_of_expr = to_string
 
 (** Pasting schemes. *)
 module PS = struct
@@ -146,13 +126,19 @@ module PS = struct
     | PCons (ps,(y,_),(f,_)) -> f::y::(free_vars ps)
     | PDrop ps -> free_vars ps
 
+  (** Height of a pasting scheme. *)
+  let rec height = function
+    | PNil _ -> 0
+    | PCons (ps,_,_) -> height ps + 1
+    | PDrop ps -> height ps - 1
+
   (** Create from a context. *)
   let make l : t =
     (* Printf.printf "make: %s\n%!" (String.concat_map " " (fun (x,t) -> Printf.sprintf "(%s : %s)" (string_of_var x) (string_of_expr t)) l); *)
     let x0,t0,l =
       match l with
       | (x,t)::l ->
-         if not !parametric_schemes then assert (t.desc = Obj);
+         if t.desc <> Obj then error ~pos:t.pos "pasting scheme must begin with *";
          x,t,l
       | [] -> error "pasting scheme cannot be empty"
     in
@@ -182,13 +168,10 @@ module PS = struct
       | [x,tx] -> error ~pos:tx.pos "not a pasting scheme (invalid parity)"
       | [] -> ps
     in
-    aux (PNil(x0,t0)) l
-
-  (** Height of a pasting scheme. *)
-  let rec height = function
-    | PNil _ -> 0
-    | PCons (ps,_,_) -> height ps + 1
-    | PDrop ps -> height ps - 1
+    let ps = aux (PNil(x0,t0)) l in
+    let ps = ref ps in
+    while height !ps > 0 do ps := PDrop !ps done;
+    !ps
 
   (** Dimension of a pasting scheme. *)
   let rec dim = function
@@ -226,10 +209,17 @@ module PS = struct
     in
     aux ps
 
-  let rec exists f = function
-    | PNil x -> f x
-    | PCons (ps,x,y) -> exists f ps || f x || f y
-    | PDrop ps -> exists f ps
+  (** Maxima of the pasting scheme. *)
+  let max = function
+    | PNil x -> [x]
+    | ps ->
+      let rec aux = function
+        | PNil x -> []
+        | PDrop (PCons (ps,y,f)) -> f::(aux ps)
+        | PDrop ps -> aux ps
+        | PCons (ps,_,_) -> aux ps
+      in
+      aux ps
 
   let rec map f = function
     | PNil x -> PNil (f x)
@@ -292,42 +282,6 @@ let fresh_var =
     in
     VFresh (x,n))
 
-let fresh_inevar =
-  let n = ref (-1) in
-  fun ?t () ->
-  let t =
-    match t with
-    | Some t -> t
-    | None -> mk (EVar (ref (ENone ((incr n; !n), mk Type)), []))
-  in
-  ref (ENone ((incr n; !n), t))
-
-(** Generate a fresh meta-variable. *)
-let fresh_evar ?pos ?t () =
-  mk ?pos (EVar (fresh_inevar ?t (), []))
-
-(** Whether a meta-variable occurs in a term. *)
-let occurs_evar v e =
-  let x =
-    match v.desc with
-    | EVar ({contents = ENone _} as x, _) -> x
-    | _ -> assert false
-  in
-  let rec aux e =
-    match e.desc with
-    | Var _ -> false
-    | EVar (x', _) -> x' == x
-    | Type -> false
-    | Abs (x,t,e) -> aux t || aux e
-    | App (f,e) -> aux f || aux e
-    | Pi (x,t,u) -> aux t || aux u
-    | HomType -> false
-    | Obj -> false
-    | Arr (t,f,g) -> aux t || aux f || aux g
-    | Coh (_,ps,e) -> PS.exists (fun (x,t) -> aux t) ps || aux e
-  in
-  aux e
-
 (** Apply a parallel substitution. *)
 let rec subst (s:subst) e =
   (* Printf.printf "subst: %s[%s]\n%!" (to_string e) (String.concat "," (List.map (fun (x,e) -> to_string e ^ "/" ^ x) s)); *)
@@ -340,12 +294,11 @@ let rec subst (s:subst) e =
          with
          | Not_found -> e.desc
        end
-    | EVar (x,s') -> (match !x with ENone _ -> EVar (x,s'@s) | ESome e -> (subst (s'@s) e).desc)
     | Type -> Type
     | HomType -> HomType
     | Obj -> Obj
     | Arr (t,x,y) -> Arr (subst s t, subst s x, subst s y)
-    | Coh (c,ps,t) ->
+    | Coh (c,ps,t,n) ->
        let s = ref s in
        let ps =
          PS.map
@@ -357,7 +310,7 @@ let rec subst (s:subst) e =
            ) ps
        in
        let t = subst !s t in
-       Coh (c,ps,t)
+       Coh (c,ps,t,n)
     | App (f,x) -> App (subst s f, subst s x)
     | Abs (x,t,e) ->
        let t = subst s t in
@@ -371,77 +324,22 @@ let rec subst (s:subst) e =
        let s = (x,mk ~pos:e.pos (Var x'))::s in
        let u = subst s u in
        Pi (x',t,u)
+    | Daimon -> Daimon
   in
   mk ~pos:e.pos desc
-
-(** Ensure that linked evars do not occur at toplevel. *)
-let rec unevar e =
-  match e.desc with
-  | EVar ({contents = ESome e}, s) -> unevar (subst s e)
-  | _ -> e
-
-(** Free meta-variables. *)
-(* Note we could compare contents, but it is safer to compare evars by comparing
-their references. *)
-let rec free_evar e =
-  match (unevar e).desc with
-  | EVar (x,_) -> [x]
-  | Var _ | Type | HomType | Obj -> []
-  | Abs (_,t,e) -> List.diffq (free_evar e) (free_evar t)
-  | App (e1,e2) -> List.unionq (free_evar e1) (free_evar e2)
-  | Arr (t, f, g) -> List.unionq (free_evar t) (List.unionq (free_evar f) (free_evar g))
-  | Pi (_,t,u) -> List.unionq (free_evar t) (free_evar u)
-  | Coh (_,ps,t) -> PS.fold_left (fun l (x,t) -> List.unionq (free_evar t) l) (free_evar t) ps
-
-(** Replace EVars by fresh ones. *)
-(* TODO: use levels? *)
-let instantiate e =
-  let g = ref [] in
-  let rec aux e =
-    let desc =
-      let e = unevar e in
-      match e.desc with
-      | Var _ -> e.desc
-      | EVar (x, s) ->
-         let x' =
-           try
-             List.assq x !g
-           with
-           | Not_found ->
-              let x' = fresh_inevar () in
-              g := (x,x') :: !g;
-              x'
-         in
-         EVar (x', s)
-      | Type -> Type
-      | Abs (x,t,e) -> Abs (x, aux t, aux e)
-      | App (f,e) -> App (aux f, aux e)
-      | Pi (x,t,u) -> Pi (x, aux t, aux u)
-      | HomType | Obj as e -> e
-      | Coh (c,ps,t) ->
-         let ps = PS.map (fun (x,t) -> x,aux t) ps in
-         let t = aux t in
-         Coh (c,ps,t)
-      | Arr (t,f,g) -> Arr (aux t, aux f, aux g)
-    in
-    mk ~pos:e.pos desc
-  in
-  aux e
 
 (** Free variables. *)
 let rec free_vars e =
   (* Printf.printf "free_vars: %s\n%!" (to_string e); *)
-  match (unevar e).desc with
+  match e.desc with
   | Var x -> [x]
-  | EVar (x,s) ->
-     if !parametric_schemes then [] else
-       error ~pos:e.pos "don't know how to compute free variables in meta-variables"
   | Type | HomType | Obj -> []
   | Arr (t,f,g) -> (free_vars t)@(free_vars f)@(free_vars g)
   | App (f,x) -> (free_vars f)@(free_vars x)
   | Pi (x,t,u) -> (free_vars t)@(List.remove x (free_vars u))
   | Abs (x,t,e) -> (free_vars t)@(List.remove x (free_vars e))
-  | Coh (c,ps,t) -> PS.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
+  | Coh (c,ps,t,n) -> PS.fold_right (fun (x,t) l -> (free_vars t)@List.remove x l) ps (free_vars t)
+  | Daimon -> assert false
 
 (** Typing environments. *)
 module Env = struct
@@ -482,17 +380,16 @@ end
 let rec normalize env e =
   (* Printf.printf "normalize: %s\n%!" (to_string e); *)
   let desc =
-    match (unevar e).desc with
+    match e.desc with
     | Var x ->
        begin
          try
            match Env.value env x with
-           | Some e -> (normalize env (instantiate e)).desc
+           | Some e -> (normalize env e).desc
            | None -> Var x
          with
          | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
        end
-    | EVar (x,s) as e -> (match !x with ENone _ -> e | ESome e -> assert false)
     | App (f, e) ->
        let f = normalize env f in
        let e = normalize env e in
@@ -512,7 +409,7 @@ let rec normalize env e =
        let e = normalize (Env.add env x t) e in
        Abs (x,t,e)
     | Obj -> Obj
-    | Coh (c,ps,t) ->
+    | Coh (c,ps,t,n) ->
        let env = ref env in
        let ps =
          PS.map
@@ -523,12 +420,13 @@ let rec normalize env e =
            ) ps
        in
        let t = normalize !env t in
-       Coh (c,ps,t)
+       Coh (c,ps,t,n)
     | Arr (t,f,g) ->
        let t = normalize env t in
        let f = normalize env f in
        let g = normalize env g in
        Arr (t,f,g)
+    | Daimon -> Daimon
   in
   mk ~pos:e.pos desc
 
@@ -541,113 +439,128 @@ let rec infer_type env e =
   (* Printf.printf "infer_type: %s : %s\n%!" (to_string e) (to_string t); *)
   (* t *)
   (* in *)
-  match e.desc with
-  | Var x ->
-     begin
-       try
-         let t = Env.typ env x in
-         if Env.value env x <> None then instantiate t else t
-       with
-       | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
-     end
-  | EVar (x,s) -> (match !x with ENone (n,t) -> t | ESome e -> infer_type env (subst s e))
-  | Type -> mk Type
-  | Pi (x,t,u) ->
-     check_type env t (mk Type);
-     check_type (Env.add env x t) u (mk Type);
-     mk Type
-  | Abs (x,t,e) ->
-     check_type env t (mk Type);
-     let u = infer_type (Env.add env x t) e in
-     mk (Pi (x,t,u))
-  | App (f,e) ->
-     let t = infer_type env f in
-     let x,t,u =
-       match (unevar t).desc with
-       | Pi (x,t,u) -> x,t,u
-       | _ -> error ~pos:f.pos "got %s : %s, but a function is expected" (to_string f) (to_string t)
-     in
-     let te = infer_type env e in
-     if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t);
-     subst [x,e] u
-  | HomType -> mk Type
-  | Obj -> mk HomType
-  | Coh (c,ps,t) ->
-     (* Normalize types in order to reveal hidden variables. *)
-     let env = ref env in
-     let ps =
-       PS.map
-         (fun (x,t) ->
-           let t = normalize !env t in
-           check_type !env t (mk HomType);
-           env := Env.add !env x t;
-           x,t
-         ) ps
-     in
-     let env = !env in
-     let t = normalize env t in
-     check_type env t (mk HomType);
-     (* Printf.printf "COH: %s\n%!" (to_string (mk (Coh(c,ps,t)))); *)
-     (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
-     (* Printf.printf "type: %s\n%!" (to_string t); *)
-     (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
-     (* debug "check pasting scheme %s" (PS.to_string ps); *)
-     if not !groupoid then
+  let desc, t =
+    match e.desc with
+    | Var x ->
        begin
-         let f,g =
-           match (unevar t).desc with
-           | Arr (_,f,g) -> f,g
-           | _ -> assert false
-         in
-         let fv = PS.free_vars ps in
-         let rec close_vars f =
-           match (unevar (infer_type env f)).desc with
-           | Arr (_,x,y) -> List.union (close_vars x) (List.union (close_vars y) (free_vars f))
-           | t ->
-              if not !parametric_schemes then assert (t = Obj);
-              free_vars f
-         in
-         let fvf = close_vars f in
-         let fvg = close_vars g in
-         if not (List.included fv fvf && List.included fv fvg) then
-           begin
-             let i = PS.dim ps in
-             (* debug "checking decompositions"; *)
-             let pss = PS.source (i-1) ps in
-             let pst = PS.target (i-1) ps in
-             (* Printf.printf "ps : %s\n%!" (PS.to_string ps); *)
-             (* Printf.printf "dim: %d\n%!" i; *)
-             (* Printf.printf "src: %s\n%!" (PS.to_string pss); *)
-             (* Printf.printf "tgt: %s\n%!" (PS.to_string pst); *)
-             let fvs = PS.free_vars pss in
-             let fvt = PS.free_vars pst in
-             if i < 1
-                || not (List.included fvs fvf)
-                || not (List.included fvt fvg)
-             then
-               let bad = List.union (List.diff fvs fvf) (List.diff fvt fvg) in
-               let bad = String.concat ", " (List.map string_of_var bad) in
-               error ~pos:t.pos "not algebraic: %s not used in %s" bad (to_string (mk (Coh (c,ps,t))));
-           end;
-       end;
-     PS.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t
-  | Arr (t,f,g) ->
-     check_type env t (mk HomType);
-     check_type env f t;
-     check_type env g t;
-     mk HomType
+         try
+           Var x, Env.typ env x
+         with
+         | Not_found -> error ~pos:e.pos "unknown identifier %s" (string_of_var x)
+       end
+    | Type -> Type, mk Type
+    | Pi (x,t,u) ->
+       let t = check_type env t (mk Type) in
+       let u = check_type (Env.add env x t) u (mk Type) in
+       Pi (x,t,u), mk Type
+    | Abs (x,t,e) ->
+       let t = check_type env t (mk Type) in
+       let e,u = infer_type (Env.add env x t) e in
+       Abs (x,t,e), mk (Pi (x,t,u))
+    (* | App (Coh(c,ps,t,0),e) -> *)
+    | App (f,e) ->
+       let f,t = infer_type env f in
+       let x,t,u =
+         match t.desc with
+         | Pi (x,t,u) -> x,t,u
+         | _ -> error ~pos:f.pos "got %s : %s, but a function is expected" (to_string f) (to_string t)
+       in
+       let e,te = infer_type env e in
+       if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t);
+       App(f,e), subst [x,e] u
+    | HomType -> HomType, mk Type
+    | Obj -> Obj, mk HomType
+    | Coh (c,ps,t,n) ->
+       assert (n = 0);
+       (* Normalize types in order to reveal hidden variables. *)
+       let env = ref env in
+       let ps =
+         PS.map
+           (fun (x,t) ->
+             let t = normalize !env t in
+             let t = check_type !env t (mk HomType) in
+             env := Env.add !env x t;
+             x,t
+           ) ps
+       in
+       let env = !env in
+       let t = normalize env t in
+       let t = check_type env t (mk HomType) in
+       (* Printf.printf "COH: %s\n%!" (to_string (mk (Coh(c,ps,t)))); *)
+       (* Printf.printf "env:\n\n%s\n%!" (Env.to_string env); *)
+       (* Printf.printf "type: %s\n%!" (to_string t); *)
+       (* Printf.printf "type: %s\n%!" (to_string (normalize env t)); *)
+       (* debug "check pasting scheme %s" (PS.to_string ps); *)
+       if not !groupoid then
+         begin
+           let f,g =
+             match t.desc with
+             | Arr (_,f,g) -> f,g
+             | _ -> assert false
+           in
+           let fv = PS.free_vars ps in
+           (*
+           let rec close_vars f =
+             match (infer_type env f).desc with
+             | Arr (_,x,y) -> List.union (close_vars x) (List.union (close_vars y) (free_vars f))
+             | t ->
+                (* if not !parametric_schemes then assert (t = Obj); *)
+                (* TODO: shift!! *)
+                assert (t = Obj);
+                free_vars f
+           in
+           let fvf = close_vars f in
+           let fvg = close_vars g in
+            *)
+           (* TODO..... *)
+           let fvf = [] in
+           let fvg = [] in
+           if not (List.included fv fvf && List.included fv fvg) then
+             begin
+               let i = PS.dim ps in
+               (* debug "checking decompositions"; *)
+               let pss = PS.source (i-1) ps in
+               let pst = PS.target (i-1) ps in
+               (* Printf.printf "ps : %s\n%!" (PS.to_string ps); *)
+               (* Printf.printf "dim: %d\n%!" i; *)
+               (* Printf.printf "src: %s\n%!" (PS.to_string pss); *)
+               (* Printf.printf "tgt: %s\n%!" (PS.to_string pst); *)
+               let fvs = PS.free_vars pss in
+               let fvt = PS.free_vars pst in
+               if i < 1
+                  || not (List.included fvs fvf)
+                  || not (List.included fvt fvg)
+               then
+                 let bad = List.union (List.diff fvs fvf) (List.diff fvt fvg) in
+                 let bad = String.concat ", " (List.map string_of_var bad) in
+                 error ~pos:t.pos "not algebraic: %s not used in %s" bad (to_string (mk (Coh (c,ps,t,n))));
+             end;
+         end;
+    (* PS.fold_right (fun (x,t) u -> mk (Pi (x,t,u))) ps t *)
+       assert false
+    | Arr ({desc = Daimon}, f, g) ->
+       let f, t = infer_type env f in
+       let g = check_type env g t in
+       Arr (t,f,g), mk HomType
+    | Arr (t,f,g) ->
+       let t = check_type env t (mk HomType) in
+       let f = check_type env f t in
+       let g = check_type env g t in
+       Arr (t,f,g), mk HomType
+    | Daimon -> assert false
+  in
+  { desc; pos = e.pos }, t
 
 (** Check that an expression has given type. *)
 and check_type env e t =
-  let te = infer_type env e in
-  if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t)
+  let e, te = infer_type env e in
+  if not (leq env te t) then error ~pos:e.pos "got %s, but %s is expected" (to_string te) (to_string t);
+  e
 
 (** Subtype relation between expressions. *)
 and leq env e1 e2 =
   let rec leq e1 e2 =
     (* Printf.printf "leq\n%s\n%s\n\n" (to_string e1) (to_string e2); *)
-    let e1 = unevar e1 in
-    let e2 = unevar e2 in
     match e1.desc, e2.desc with
     | Var x1, Var x2 -> x1 = x2
     | Pi (x1,t1,u1), Pi (x2,t2,u2) -> leq t2 t1 && leq u1 (subst [x2,mk (Var x1)] u2)
@@ -657,7 +570,7 @@ and leq env e1 e2 =
     | HomType, HomType -> true
     | HomType, Type -> true
     | Obj, Obj -> true
-    | Coh(_,ps1,t1), Coh(_,ps2,t2) ->
+    | Coh(_,ps1,t1,n1), Coh(_,ps2,t2,n2) ->
        (*
        let rec aux l1 s l2 =
          match l1,l2 with
@@ -679,21 +592,10 @@ and leq env e1 e2 =
              ans && leq t1 t2
            ) true ps1 ps2
        in
-       ans && leq t1 (subst !s t2)
+       n1 = n2 && ans && leq t1 (subst !s t2)
     | Arr (t1,f1,g1), Arr (t2,f2,g2) -> leq t1 t2 && leq f1 f2 && leq g1 g2
-    | EVar (x1, _), EVar (x2, _) when x1 == x2 -> true
-    (* | EVar ({contents = ESome t}, s), _ -> leq (subst s t) t2 *)
-    (* | _, EVar ({contents = ESome t}, s) -> leq t1 (subst s t) *)
-    | EVar ({contents = ENone (n,t)} as x, s), _ ->
-       if occurs_evar e1 e2 then false
-       else if not (leq (infer_type env e2) t) then false
-       else (x := ESome e2; leq e1 e2)
-    | _, EVar({contents = ENone (n,t)} as x, s) ->
-       if occurs_evar e2 e1 then false
-       else if not (leq (infer_type env e1) t) then false
-       else (x := ESome e1; leq e1 e2)
     | (Var _ | Abs _ | App _ | Type | HomType | Pi _ | Obj | Arr _ | Coh _), _ -> false
-    | EVar _, _ -> assert false
+    | Daimon, _ -> assert false
   in
   leq (normalize env e1) (normalize env e2)
 
@@ -735,48 +637,29 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
   match cmd with
   | Decl (x,e) ->
      let e = subst s e in
-     let t = infer_type env e in
-     (* let e = normalize env e in *)
-     (* let t = infer_type env e in *)
+     let e, t = infer_type env e in
      let x' = fresh_var x in
      info "%s = %s\n    : %s" (string_of_var x') (to_string e) (to_string t);
-     (* Try to resolve meta-variables. *)
-     let mv = free_evar e in
-     let mv = List.filter (fun x -> match !x with ENone (n,t) -> (unevar t).desc <> HomType | ESome _ -> assert false) mv in
-     if not !unsafe_evars && mv <> [] then
-       (
-         let s x = string_of_evarref x in
-         (* let s x = *)
-           (* let t = *)
-             (* match !x with *)
-             (* | ENone (_,t) -> t *)
-             (* | _ -> assert false *)
-           (* in *)
-           (* string_of_evarref x ^ " : " ^ to_string t *)
-         (* in *)
-         let mv = String.concat ", " (List.map s mv) in
-         error ~pos:e.pos "expression %s has meta-variables %s" (to_string e) mv
-       );
      let env = Env.add env x' ~value:e t in
      let s = (x,mk (Var x'))::s in
      env,s
   | Axiom (x,t) ->
      let t = subst s t in
      let x' = fresh_var x in
-     check_type env t (mk Type);
+     let t = check_type env t (mk Type) in
      let env = Env.add env x' t in
      let s = (x,mk (Var x'))::s in
      env,s
   | Check e ->
      let e = subst s e in
-     let t = infer_type env e in
+     let e, t = infer_type env e in
      printf "%s\n%!" (to_string t);
      env,s
   | Eval e ->
      let e = subst s e in
      let e0 = e in
      let e = normalize env e in
-     let t = infer_type env e in
+     let e, t = infer_type env e in
      printf "    %s\n    = %s\n    : %s\n%!" (to_string e0) (to_string e) (to_string t);
      env,s
   | Env ->
@@ -791,8 +674,6 @@ let exec_cmd ((env,s):Envs.t) cmd : Envs.t =
      if o = "groupoid" then
        (* Switch groupoid mode. *)
        groupoid := bool ()
-     else if o = "unsafe-evars" then
-       unsafe_evars := bool ()
      else if o = "show-instances" then
        show_instances := bool ()
      else if o = "exit" then

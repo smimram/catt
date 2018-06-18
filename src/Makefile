@@ -6,7 +6,7 @@ DOC_FILES = lang.ml prover.ml catt.ml
 OCAMLDOCFLAGS := -sort
 
 all: dnc
-	./catt test.catt
+	# ./catt test.catt
 	./catt eh.catt
 
 web: web.ml dc
