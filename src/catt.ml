@@ -9,7 +9,7 @@ let parse_file f =
     close_in fi;
     buf
   in
-  Prover.parse sin
+  Prover.parse (Bytes.to_string sin)
 
 let usage = "catt [options] [file]"
 let interactive = ref false
