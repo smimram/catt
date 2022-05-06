@@ -1,6 +1,6 @@
 (** Core part of the language. *)
 
-open Stdlib
+open Extlib
 open Common
 
 (** {2 Global options} *)
