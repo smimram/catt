@@ -1,5 +1,5 @@
 %{
-    open Stdlib
+    open Extlib
     open Lang
 
     let defpos () = Parsing.symbol_start_pos (), Parsing.symbol_end_pos ()
@@ -25,6 +25,7 @@
 %token EOF
 
 %right ARR ARROW
+%right IN
 
 %start prog ps
 %type <Lang.prog> prog
@@ -38,7 +39,7 @@ prog:
 cmd:
     | LET var args EQ expr { Decl ($2,abs $3 $5) }
     | HYP var COL expr { Axiom ($2,$4) }
-    | COH var args COL expr { Decl ($2,mk (Coh (var_name $2,PS.make $3,$5,0))) }
+    | COH var args COL expr { Decl ($2,mk (Coh (var_name $2,PS.make $3,$5))) }
     | SET IDENT EQ IDENT { Set ($2,$4) }
     | CHECK expr { Check $2 }
     | EVAL expr { Eval $2 }
@@ -67,8 +68,8 @@ app_expr:
 
 expr:
     | app_expr { $1 }
-    | expr ARR expr { mk (Arr (mk Daimon,$1,$3)) }
-//    | COH stringopt args COL simple_expr { mk (Coh ($2,PS.make $3,$5,0)) }
+    | expr ARR expr { mk (Arr (None,$1,$3)) }
+//    | COH stringopt args COL simple_expr { mk (Coh ($2,PS.make $3,$5)) }
     | LET var EQ expr IN expr { $6 } // TODO....
 
 stringopt:

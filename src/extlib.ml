@@ -83,6 +83,10 @@ module Option = struct
   let default x = function
     | Some x -> x
     | None -> x
+
+  let get = function
+    | Some x -> x
+    | None -> raise Not_found
 end
 
 module String = struct
