@@ -36,10 +36,6 @@ let run _ =
   textbox##cols <- 80;
   textbox##rows <- 25;
   (* textbox##value <- Js.string "# "; *)
-  Dom.appendChild top textbox;
-  Dom.appendChild top (Html.createBr doc);
-  textbox##focus();
-  textbox##select();
 
   (* Current offset in textbox. *)
   let tb_off = ref 0 in
@@ -84,6 +80,10 @@ let run _ =
   in
   b##id <- Js.string "send";
   Dom.appendChild top b;
+  Dom.appendChild top textbox;
+  Dom.appendChild top (Html.createBr doc);
+  textbox##focus();
+  textbox##select();
 
   ignore (Js.Unsafe.eval_string "init();");
 
