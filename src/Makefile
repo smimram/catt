@@ -8,6 +8,7 @@ OCAMLDOCFLAGS := -sort
 all: dnc
 	./catt test.catt
 	./catt eh.catt
+	./catt simple.catt
 
 web: web.ml dc
 	$(OCAMLC) -annot -I `ocamlfind query js_of_ocaml` -pp "camlp4o -I `ocamlfind query js_of_ocaml` pa_js.cmo" -c web.ml
