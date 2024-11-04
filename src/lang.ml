@@ -445,8 +445,7 @@ let rec free_vars e =
 
 (** Typing environments. *)
 module Env = struct
-  (** A typing environment assign to each variable, its value (when known, which
-  should be in normal form) and its type. *)
+  (** A typing environment assign to each variable, its value (when known, which should be in normal form) and its type. *)
   type t = (var * (expr option * expr)) list
 
   (** String representation. *)
